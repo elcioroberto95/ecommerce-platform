@@ -2,6 +2,7 @@
   "name": "ecommerce-platform",
   "version": "1.0.0",
   "private": true,
+  "packageManager": "pnpm@10.34.4",
   "scripts": {
     "dev": "pnpm --parallel --filter './apps/*' dev",
     "build": "pnpm --recursive --if-present build",
