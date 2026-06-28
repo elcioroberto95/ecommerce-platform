@@ -22,8 +22,8 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        version: version: 10.34.4
         with:
+          version: 10.34.4
           run_install: false
 
       - name: Setup Node.js
