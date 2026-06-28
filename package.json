@@ -2,6 +2,7 @@
   "name": "ecommerce-platform",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "packageManager": "pnpm@10.34.4",
   "scripts": {
     "dev": "pnpm --parallel --filter './apps/*' dev",
@@ -11,11 +12,14 @@
     "typecheck": "pnpm --recursive --if-present typecheck"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/node": "^26.0.1",
     "eslint": "^10.6.0",
     "eslint-config-prettier": "^10.1.8",
+    "globals": "^17.7.0",
     "prettier": "^3.9.1",
     "tsx": "^4.22.4",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.62.0"
   }
 }

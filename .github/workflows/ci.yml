@@ -22,6 +22,7 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
+        version: version: 10.34.4
         with:
           run_install: false
 
