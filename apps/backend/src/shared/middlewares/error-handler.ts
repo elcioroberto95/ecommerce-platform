@@ -9,11 +9,15 @@ export function errorHandler(
   res: Response,
   _next: NextFunction
 ) {
+  // Erro operacional (esperado)
   if (error instanceof AppError) {
     logger.warn(
       {
-        err: error,
-        statusCode: error.statusCode,
+        err: {
+          name: error.name,
+          message: error.message,
+          statusCode: error.statusCode,
+        },
         path: req.path,
         method: req.method,
       },
@@ -26,9 +30,14 @@ export function errorHandler(
     });
   }
 
+  // Erro de programação (bug)
   logger.error(
     {
-      err: error,
+      err: {
+        name: error.name,
+        message: error.message,
+        stack: error.stack,
+      },
       path: req.path,
       method: req.method,
     },
