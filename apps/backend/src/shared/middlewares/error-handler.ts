@@ -1,11 +1,10 @@
-import { NextFunction, Request, Response } from 'express';
+import {  Request, Response } from 'express';
 import { AppError } from '../../core/errors/app-error';
 
 export function errorHandler(
   error: Error,
   _: Request,
-  res: Response,
-  __: NextFunction,
+  res: Response
 ) {
   if (error instanceof AppError) {
     return res.status(error.statusCode).json({
