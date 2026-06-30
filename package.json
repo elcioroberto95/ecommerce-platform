@@ -8,7 +8,10 @@
     "dev": "pnpm --parallel --filter './apps/*' dev",
     "build": "pnpm --recursive --if-present build",
     "test": "pnpm --recursive --if-present test",
-    "lint": "pnpm --recursive --if-present lint",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "typecheck": "pnpm --recursive --if-present typecheck"
   },
   "devDependencies": {

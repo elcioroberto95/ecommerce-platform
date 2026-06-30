@@ -1,6 +1,6 @@
 import js from '@eslint/js';
-import tseslint from 'typescript-eslint';
 import globals from 'globals';
+import tseslint from 'typescript-eslint';
 import prettier from 'eslint-config-prettier';
 
 export default tseslint.config(
@@ -8,27 +8,45 @@ export default tseslint.config(
     ignores: [
       '**/node_modules/**',
       '**/dist/**',
-      '**/coverage/**'
-    ]
+      '**/build/**',
+      '**/.turbo/**',
+    ],
   },
-
-  js.configs.recommended,
-
-  ...tseslint.configs.recommended,
-
-  prettier,
-
+  // Config para arquivos .js (sem type-checking)
+  {
+    files: ['**/*.js', '**/*.mjs'],
+    ...js.configs.recommended,
+    languageOptions: {
+      globals: {
+        ...globals.node,
+        ...globals.es2024,
+      },
+    },
+  },
+  // Config para arquivos .ts (com type-checking)
   {
     files: ['**/*.ts'],
+    extends: [
+      ...tseslint.configs.recommended,
+    ],
     languageOptions: {
-      ecmaVersion: 'latest',
-      sourceType: 'module',
       globals: {
-        ...globals.node
-      }
+        ...globals.node,
+        ...globals.es2024,
+      },
+      parserOptions: {
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
+      },
     },
     rules: {
-      'no-console': 'off'
-    }
-  }
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_' },
+      ],
+      '@typescript-eslint/explicit-function-return-type': 'off',
+      '@typescript-eslint/no-explicit-any': 'warn',
+    },
+  },
+  prettier
 );

@@ -1,0 +1,10 @@
+// tsconfig.eslint.json
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "eslint.config.js",
+    "apps/*/src/**/*",
+    "apps/*/eslint.config.js"
+  ],
+  "exclude": ["node_modules", "dist", "build"]
+}
