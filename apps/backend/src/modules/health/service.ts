@@ -6,7 +6,7 @@ export class HealthService {
     return {
       status: 'ok',
       service: 'backend',
-      environment: env.nodeEnv,
+      environment: env.NODE_ENV,
       uptime: uptime(),
       timestamp: new Date().toISOString(),
     };

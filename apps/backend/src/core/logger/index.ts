@@ -1,0 +1,26 @@
+import pino from 'pino';
+import { env } from '../../config/env';
+
+const isDevelopment = env.NODE_ENV === 'development';
+
+export const logger = pino({
+  level: env.NODE_ENV === 'test' ? 'silent' : 'info',
+  transport: isDevelopment
+    ? {
+        target: 'pino-pretty',
+        options: {
+          colorize: true,
+          translateTime: 'HH:MM:ss',
+          ignore: 'pid,hostname',
+        },
+      }
+    : undefined,
+  formatters: {
+    level: (label) => {
+      return { level: label };
+    },
+  },
+  base: {
+    env: env.NODE_ENV,
+  },
+});
