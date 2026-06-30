@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
+ 
 import { Request, Response, NextFunction } from 'express';
 import { AppError } from '../../core/errors/app-error';
 import { logger } from '../../core/logger';
