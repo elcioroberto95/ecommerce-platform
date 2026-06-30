@@ -1,6 +1,10 @@
 import app from './app';
 import { env } from './config/env';
+import { logger } from './core/logger';
 
-app.listen(env.PORT, () => {
-  console.log(`🚀 Backend running on http://localhost:${env.PORT}`);
+const PORT = env.PORT;
+
+app.listen(PORT, () => {
+  logger.info(`Server running on port ${PORT}`);
+  logger.info(`Environment: ${env.NODE_ENV}`);
 });
