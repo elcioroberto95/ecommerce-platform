@@ -4,7 +4,10 @@ dotenv.config();
 
 export const envSchema = z.object({
   PORT: z.coerce.number().int().positive().default(3000),
-  NODE_ENV: z.enum(['development', 'production', 'test']).default('development')
+  NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+  DATABASE_URL: z.httpUrl(),
+  REDIS_URL: z.httpUrl(),
+  JWT_SECRET: z.string().min(1),
 });
 
 
