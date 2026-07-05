@@ -10,7 +10,7 @@ Desenvolver uma plataforma de e-commerce moderna com foco em aprendizado de arqu
 
 ## Autenticação
 
-- O usuário poderá criar uma conta.
+[x] O usuário poderá criar uma conta.
 - O usuário poderá realizar login.
 - O usuário poderá atualizar seus dados cadastrais.
 - O usuário poderá visualizar seus dados.
