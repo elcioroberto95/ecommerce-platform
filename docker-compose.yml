@@ -1,4 +1,24 @@
 services:
+  backend:
+    build:
+      context: .
+      dockerfile:  apps/backend/Dockerfile
+    container_name: ecommerce-backend
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgresql://ecommerce:ecommerce@postgres:5432/ecommerce
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: dev-secret
+      LOG_LEVEL: info
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
   postgres:
     image: postgres:16
     container_name: ecommerce-postgres
@@ -10,6 +30,11 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ecommerce -d ecommerce"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   redis:
     image: redis:7

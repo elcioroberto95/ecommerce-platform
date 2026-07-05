@@ -1,4 +1,3 @@
- 
 import { Request, Response, NextFunction } from 'express';
 import { AppError } from '../../core/errors/app-error';
 import { logger } from '../../core/logger';
@@ -9,16 +8,19 @@ export function errorHandler(
   res: Response,
   _next: NextFunction
 ) {
-  // Erro operacional (esperado)
+  const requestId = req.headers['x-request-id'];
+
   if (error instanceof AppError) {
     logger.warn(
       {
         err: {
           name: error.name,
           message: error.message,
+          code: error.code,
           statusCode: error.statusCode,
         },
-        path: req.path,
+        requestId,
+        path: req.originalUrl,
         method: req.method,
       },
       error.message
@@ -26,11 +28,11 @@ export function errorHandler(
 
     return res.status(error.statusCode).json({
       success: false,
+      code: error.code,
       message: error.message,
     });
   }
 
-  // Erro de programação (bug)
   logger.error(
     {
       err: {
@@ -38,14 +40,16 @@ export function errorHandler(
         message: error.message,
         stack: error.stack,
       },
-      path: req.path,
+      requestId,
+      path: req.originalUrl,
       method: req.method,
     },
-    'Internal Server Error'
+    'Unhandled application error'
   );
 
   return res.status(500).json({
     success: false,
+    code: 'INTERNAL_SERVER_ERROR',
     message: 'Internal Server Error',
   });
 }
