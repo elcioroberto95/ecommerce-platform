@@ -1,8 +1,7 @@
-export class ConflictError extends Error {
-  public readonly statusCode = 409;
+import { AppError } from './app-error';
 
+export class ConflictError extends AppError {
   constructor(message = 'Conflict') {
-    super(message);
-    this.name = 'ConflictError';
+    super(message, 409, 'CONFLICT');
   }
 }
