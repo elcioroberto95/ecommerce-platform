@@ -23,7 +23,14 @@ export const usersRepository = {
       },
     });
   },
-
+  findById(id: string) {
+    return prisma.user.findUnique({
+      where: {
+        id,
+      },
+      select: userWithoutPasswordSelect,
+    });
+  },
   create(data: CreateUserData) {
     return prisma.user.create({
       data,
