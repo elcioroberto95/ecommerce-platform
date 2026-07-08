@@ -5,8 +5,10 @@ declare global {
         id: string;
         role: 'CUSTOMER' | 'ADMIN';
       };
+
+      validatedQuery?: unknown;
+      validatedParams?: unknown;
     }
   }
 }
-
 export {};
