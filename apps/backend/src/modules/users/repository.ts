@@ -5,6 +5,11 @@ type CreateUserData = {
   email: string;
   password: string;
 };
+type UpdateUserData = {
+  name?: string;
+  email?: string;
+  password?: string;
+};
 
 const userWithoutPasswordSelect = {
   id: true,
@@ -37,4 +42,13 @@ export const usersRepository = {
       select: userWithoutPasswordSelect,
     });
   },
+  updateById(id: string, data: Partial<UpdateUserData>) {
+    return prisma.user.update({
+      where: {
+        id,
+      },
+      data,
+      select: userWithoutPasswordSelect,
+    });
+  }
 };
