@@ -10,23 +10,23 @@ Desenvolver uma plataforma de e-commerce moderna com foco em aprendizado de arqu
 
 ## Autenticação
 
-[x] O usuário poderá criar uma conta.
-[x] O usuário poderá realizar login.
-- O usuário poderá atualizar seus dados cadastrais.
-- O usuário poderá visualizar seus dados.
+- [x] O usuário poderá criar uma conta.
+- [x] O usuário poderá realizar login.
+- [x] O usuário poderá atualizar seus dados cadastrais.
+- [x] O usuário poderá visualizar seus dados.
 
 ## Produtos
 
-- O usuário poderá visualizar a lista de produtos.
-- O usuário poderá pesquisar produtos.
-- O usuário poderá visualizar os detalhes de um produto.
+- [x] O usuário poderá visualizar a lista de produtos.
+- [x] O usuário poderá pesquisar produtos.
+- [x] O usuário poderá visualizar os detalhes de um produto.
 
 ## Carrinho
 
-- O usuário poderá adicionar produtos ao carrinho.
-- O usuário poderá alterar a quantidade de um produto.
-- O usuário poderá remover produtos do carrinho.
-- O usuário poderá visualizar o valor total da compra.
+- [x] O usuário poderá adicionar produtos ao carrinho.
+- [x] O usuário poderá alterar a quantidade de um produto.
+- [x] O usuário poderá remover produtos do carrinho.
+- [x] O usuário poderá visualizar o valor total da compra.
 
 ## Pedido
 
