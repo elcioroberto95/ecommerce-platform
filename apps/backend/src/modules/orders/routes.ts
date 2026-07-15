@@ -1,86 +1,48 @@
-import type { RequestHandler } from 'express';
+import { Router } from 'express';
 
-import { UnauthorizedError } from '../../core/errors/unauthorized-error';
-import { ordersService } from './service';
-import type {
-    CreateOrderInput,
-    OrderParams,
-    UpdateOrderStatusInput,
+import { authenticate } from '../../shared/middlewares/authenticate';
+import { authorizeRoles } from '../../shared/middlewares/authorize-roles';
+import { validateBody } from '../../shared/middlewares/validate-body';
+import { validateParams } from '../../shared/middlewares/validate-params';
+import { ordersController } from './controller';
+import {
+    createOrderSchema,
+    orderParamsSchema,
+    updateOrderStatusSchema,
 } from './schemas';
 
-const create: RequestHandler = async (request, response, next) => {
-    try {
-        if (!request.user) {
-            throw new UnauthorizedError('Missing authenticated user');
-        }
+const ordersRoutes = Router();
 
-        const data = request.body as CreateOrderInput;
+ordersRoutes.post(
+    '/orders',
+    authenticate,
+    validateBody(createOrderSchema),
+    ordersController.create
+);
 
-        const order = await ordersService.create(request.user.id, data);
+ordersRoutes.get('/orders', authenticate, ordersController.listMine);
 
-        response.status(201).json(order);
-    } catch (error) {
-        next(error);
-    }
-};
+ordersRoutes.get(
+    '/orders/:orderId',
+    authenticate,
+    validateParams(orderParamsSchema),
+    ordersController.getMine
+);
 
-const listMine: RequestHandler = async (request, response, next) => {
-    try {
-        if (!request.user) {
-            throw new UnauthorizedError('Missing authenticated user');
-        }
+ordersRoutes.get(
+    '/admin/orders',
+    authenticate,
+    authorizeRoles('ADMIN'),
+    ordersController.listAdmin
+);
 
-        const orders = await ordersService.listMine(request.user.id);
+ordersRoutes.patch(
+    '/admin/orders/:orderId/status',
+    authenticate,
+    authorizeRoles('ADMIN'),
+    validateParams(orderParamsSchema),
+    validateBody(updateOrderStatusSchema),
+    ordersController.updateStatus
+);
 
-        response.status(200).json(orders);
-    } catch (error) {
-        next(error);
-    }
-};
-
-const getMine: RequestHandler = async (request, response, next) => {
-    try {
-        if (!request.user) {
-            throw new UnauthorizedError('Missing authenticated user');
-        }
-
-        const { orderId } = request.validatedParams as OrderParams;
-
-        const order = await ordersService.getMine(request.user.id, orderId);
-
-        response.status(200).json(order);
-    } catch (error) {
-        next(error);
-    }
-};
-
-const listAdmin: RequestHandler = async (_request, response, next) => {
-    try {
-        const orders = await ordersService.listAdmin();
-
-        response.status(200).json(orders);
-    } catch (error) {
-        next(error);
-    }
-};
-
-const updateStatus: RequestHandler = async (request, response, next) => {
-    try {
-        const { orderId } = request.validatedParams as OrderParams;
-        const data = request.body as UpdateOrderStatusInput;
-
-        const order = await ordersService.updateStatus(orderId, data);
-
-        response.status(200).json(order);
-    } catch (error) {
-        next(error);
-    }
-};
-
-export const ordersController = {
-    create,
-    listMine,
-    getMine,
-    listAdmin,
-    updateStatus,
-};
+export default ordersRoutes;
