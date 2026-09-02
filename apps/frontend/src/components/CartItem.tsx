@@ -18,7 +18,7 @@ export function CartItem({ item }: CartItemProps) {
     if (newQuantity < 1) return;
     try {
       setIsUpdating(true);
-      await updateItem(item.product.id, newQuantity);
+      await updateItem(item.product_id, newQuantity);
     } finally {
       setIsUpdating(false);
     }
@@ -27,20 +27,20 @@ export function CartItem({ item }: CartItemProps) {
   const handleRemove = async () => {
     try {
       setIsUpdating(true);
-      await removeItem(item.product.id);
+      await removeItem(item.product_id);
     } finally {
       setIsUpdating(false);
     }
   };
 
-  const subtotal = Number(item.product.price) * item.quantity;
+  const subtotal = Number(item.price) * item.quantity;
 
   return (
     <div className="flex gap-4 border-b pb-4 last:border-b-0">
       <div className="relative h-24 w-24 flex-shrink-0">
         <Image
-          src={`https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=200&h=200&fit=crop`}
-          alt={item.product.name}
+          src={item.product_image || `https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=200&h=200&fit=crop`}
+          alt={item.product_name}
           fill
           className="rounded-lg object-cover"
         />
@@ -49,8 +49,8 @@ export function CartItem({ item }: CartItemProps) {
       <div className="flex flex-1 flex-col">
         <div className="flex justify-between gap-4">
           <div>
-            <h3 className="font-semibold text-gray-900">{item.product.name}</h3>
-            <p className="text-sm text-gray-600">${Number(item.product.price).toFixed(2)}</p>
+            <h3 className="font-semibold text-gray-900">{item.product_name}</h3>
+            <p className="text-sm text-gray-600">${Number(item.price).toFixed(2)}</p>
           </div>
           <button
             onClick={handleRemove}

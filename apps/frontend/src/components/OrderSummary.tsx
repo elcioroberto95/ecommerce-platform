@@ -21,7 +21,7 @@ export function OrderSummary({ cart, isLoading }: OrderSummaryProps) {
     );
   }
 
-  const subtotal = cart.items.reduce((sum, item) => sum + Number(item.product.price) * item.quantity, 0);
+  const subtotal = cart.items.reduce((sum, item) => sum + Number(item.price) * item.quantity, 0);
   const tax = subtotal * TAX_RATE;
   const total = subtotal + tax + SHIPPING_COST;
 
