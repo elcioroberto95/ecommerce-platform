@@ -17,8 +17,13 @@ type UpdateProductData = {
 
 type FindManyParams = {
   search?: string;
+  categoryId?: string;
+  priceMin?: number;
+  priceMax?: number;
+  inStock?: boolean;
   skip: number;
   take: number;
+  orderBy?: 'price_asc' | 'price_desc' | 'rating' | 'newest' | 'relevance';
 };
 
 const productSelect = {
@@ -27,6 +32,7 @@ const productSelect = {
   description: true,
   price: true,
   stock: true,
+  categoryId: true,
   active: true,
   createdAt: true,
   updatedAt: true,
@@ -40,7 +46,16 @@ export const productsRepository = {
     });
   },
 
-  async findMany({ search, skip, take }: FindManyParams) {
+  async findMany({
+    search,
+    categoryId,
+    priceMin,
+    priceMax,
+    inStock,
+    skip,
+    take,
+    orderBy = 'relevance',
+  }: FindManyParams) {
     const where: Prisma.ProductWhereInput = {
       active: true,
     };
@@ -62,13 +77,47 @@ export const productsRepository = {
       ];
     }
 
+    if (categoryId) {
+      where.categoryId = categoryId;
+    }
+
+    if (priceMin !== undefined || priceMax !== undefined) {
+      where.price = {};
+      if (priceMin !== undefined) {
+        where.price = { ...where.price, gte: new Prisma.Decimal(priceMin) };
+      }
+      if (priceMax !== undefined) {
+        where.price = { ...where.price, lte: new Prisma.Decimal(priceMax) };
+      }
+    }
+
+    if (inStock) {
+      where.stock = { gt: 0 };
+    }
+
+    let orderByClause: Prisma.ProductOrderByWithRelationInput = { createdAt: 'desc' };
+
+    switch (orderBy) {
+      case 'price_asc':
+        orderByClause = { price: 'asc' };
+        break;
+      case 'price_desc':
+        orderByClause = { price: 'desc' };
+        break;
+      case 'newest':
+        orderByClause = { createdAt: 'desc' };
+        break;
+      case 'relevance':
+      default:
+        orderByClause = { createdAt: 'desc' };
+        break;
+    }
+
     const [items, total] = await prisma.$transaction([
       prisma.product.findMany({
         where,
         select: productSelect,
-        orderBy: {
-          createdAt: 'desc',
-        },
+        orderBy: orderByClause,
         skip,
         take,
       }),
@@ -114,5 +163,49 @@ export const productsRepository = {
       },
       select: productSelect,
     });
+  },
+
+  async findRelated(productId: string, limit: number = 5) {
+    const product = await prisma.product.findFirst({
+      where: {
+        id: productId,
+        active: true,
+      },
+      select: {
+        categoryId: true,
+      },
+    });
+
+    if (!product || !product.categoryId) {
+      return {
+        items: [],
+        total: 0,
+      };
+    }
+
+    const [items, total] = await prisma.$transaction([
+      prisma.product.findMany({
+        where: {
+          categoryId: product.categoryId,
+          id: { not: productId },
+          active: true,
+        },
+        select: productSelect,
+        take: limit,
+      }),
+
+      prisma.product.count({
+        where: {
+          categoryId: product.categoryId,
+          id: { not: productId },
+          active: true,
+        },
+      }),
+    ]);
+
+    return {
+      items,
+      total,
+    };
   },
 };

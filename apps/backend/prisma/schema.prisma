@@ -29,17 +29,33 @@ model User {
   @@map("users")
 }
 
+model Category {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  products Product[]
+
+  @@map("categories")
+}
+
 model Product {
   id          String   @id @default(uuid())
   name        String
   description String?
   price       Decimal  @db.Decimal(10, 2)
   stock       Int      @default(0)
+  categoryId  String?
   active      Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  cartItems CartItem[]
+  category   Category?  @relation(fields: [categoryId], references: [id])
+  cartItems  CartItem[]
   orderItems OrderItem[]
 
   @@map("products")

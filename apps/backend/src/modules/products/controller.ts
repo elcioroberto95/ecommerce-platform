@@ -69,10 +69,24 @@ const remove: RequestHandler = async (request, response, next) => {
   }
 };
 
+const getRelated: RequestHandler = async (request, response, next) => {
+  try {
+    const { id } = request.validatedParams as ProductParams;
+    const limit = (request.query.limit as string) ? parseInt(request.query.limit as string) : 5;
+
+    const result = await productsService.getRelated(id, Math.min(limit, 20));
+
+    response.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const productsController = {
   create,
   list,
   getById,
   update,
   remove,
+  getRelated,
 };

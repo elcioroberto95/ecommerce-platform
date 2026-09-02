@@ -21,6 +21,8 @@ productsRoutes.get(
 
 productsRoutes.get('/products/:id', productsController.getById);
 
+productsRoutes.get('/products/:id/related', productsController.getRelated);
+
 productsRoutes.post(
     '/products',
     authenticate,

@@ -61,10 +61,40 @@ export const listProductsQuerySchema = z.object({
         .optional()
         .transform(value => (value ? value : undefined)),
 
+    category: z
+        .string()
+        .uuid()
+        .optional(),
+
+    priceMin: z.coerce
+        .number()
+        .min(0)
+        .optional(),
+
+    priceMax: z.coerce
+        .number()
+        .min(0)
+        .optional(),
+
+    ratingMin: z.coerce
+        .number()
+        .min(0)
+        .max(5)
+        .optional(),
+
+    inStock: z.coerce
+        .boolean()
+        .optional(),
+
+    sort: z
+        .enum(['relevance', 'price_asc', 'price_desc', 'rating', 'newest'])
+        .default('relevance'),
+
     page: z.coerce.number().int().min(1).default(1),
 
     limit: z.coerce.number().int().min(1).max(100).default(20),
 });
+
 export const productParamsSchema = z.object({
     id: z.string().uuid('Invalid product id'),
 });
@@ -72,6 +102,5 @@ export const productParamsSchema = z.object({
 export type CreateProductInput = z.infer<typeof createProductSchema>;
 export type UpdateProductInput = z.infer<typeof updateProductSchema>;
 export type ListProductsQuery = z.infer<typeof listProductsQuerySchema>;
-
 
 export type ProductParams = z.infer<typeof productParamsSchema>;

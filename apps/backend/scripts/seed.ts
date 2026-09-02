@@ -15,6 +15,7 @@ async function main() {
   const electronics = await prisma.category.create({
     data: {
       name: 'Electronics',
+      slug: 'electronics',
       description: 'Electronic devices and gadgets',
     },
   })
@@ -22,6 +23,7 @@ async function main() {
   const accessories = await prisma.category.create({
     data: {
       name: 'Accessories',
+      slug: 'accessories',
       description: 'Computer and mobile accessories',
     },
   })
@@ -29,6 +31,7 @@ async function main() {
   const home = await prisma.category.create({
     data: {
       name: 'Home',
+      slug: 'home',
       description: 'Home and office products',
     },
   })
@@ -42,9 +45,6 @@ async function main() {
       price: 199.99,
       stock: 25,
       categoryId: electronics.id,
-      imageUrl: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500&h=500&fit=crop',
-      rating: 4.5,
-      reviewsCount: 128,
     },
     {
       name: 'Smart Watch',
@@ -52,9 +52,6 @@ async function main() {
       price: 299.99,
       stock: 15,
       categoryId: electronics.id,
-      imageUrl: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500&h=500&fit=crop',
-      rating: 4.8,
-      reviewsCount: 256,
     },
     {
       name: 'Backpack Pro',
@@ -62,9 +59,6 @@ async function main() {
       price: 89.99,
       stock: 40,
       categoryId: accessories.id,
-      imageUrl: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=500&h=500&fit=crop',
-      rating: 4.6,
-      reviewsCount: 89,
     },
     {
       name: 'USB-C Hub',
@@ -72,9 +66,6 @@ async function main() {
       price: 49.99,
       stock: 60,
       categoryId: electronics.id,
-      imageUrl: 'https://images.unsplash.com/photo-1625948515291-69613efd103f?w=500&h=500&fit=crop',
-      rating: 4.4,
-      reviewsCount: 67,
     },
     {
       name: 'Desk Lamp',
@@ -82,9 +73,6 @@ async function main() {
       price: 59.99,
       stock: 30,
       categoryId: home.id,
-      imageUrl: 'https://images.unsplash.com/photo-1565636192335-14c46e7f6c67?w=500&h=500&fit=crop',
-      rating: 4.7,
-      reviewsCount: 145,
     },
     {
       name: 'Mechanical Keyboard',
@@ -92,9 +80,6 @@ async function main() {
       price: 149.99,
       stock: 0,
       categoryId: electronics.id,
-      imageUrl: 'https://images.unsplash.com/photo-1587829191301-72e332e2ad07?w=500&h=500&fit=crop',
-      rating: 4.9,
-      reviewsCount: 312,
     },
     {
       name: 'Webcam Pro',
@@ -102,9 +87,6 @@ async function main() {
       price: 129.99,
       stock: 20,
       categoryId: electronics.id,
-      imageUrl: 'https://images.unsplash.com/photo-1598392367923-db800bd8624f?w=500&h=500&fit=crop',
-      rating: 4.3,
-      reviewsCount: 78,
     },
     {
       name: 'Mouse Wireless',
@@ -112,9 +94,6 @@ async function main() {
       price: 39.99,
       stock: 50,
       categoryId: accessories.id,
-      imageUrl: 'https://images.unsplash.com/photo-1527814050087-3793815479db?w=500&h=500&fit=crop',
-      rating: 4.5,
-      reviewsCount: 156,
     },
     {
       name: 'Monitor Stand',
@@ -122,9 +101,6 @@ async function main() {
       price: 79.99,
       stock: 35,
       categoryId: home.id,
-      imageUrl: 'https://images.unsplash.com/photo-1598066635269-6cc6d5be4b00?w=500&h=500&fit=crop',
-      rating: 4.4,
-      reviewsCount: 92,
     },
     {
       name: 'Portable SSD',
@@ -132,9 +108,6 @@ async function main() {
       price: 109.99,
       stock: 22,
       categoryId: electronics.id,
-      imageUrl: 'https://images.unsplash.com/photo-1597872200969-2b65d56bd16b?w=500&h=500&fit=crop',
-      rating: 4.7,
-      reviewsCount: 203,
     },
   ]
 
