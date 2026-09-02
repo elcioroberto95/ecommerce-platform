@@ -1,0 +1,475 @@
+# E-commerce Platform - Workflow Configuration
+# Status: Production
+# Version: 1.0.0
+# Last Updated: 2026-09-01
+
+project:
+  name: E-commerce Platform
+  status: ACTIVE
+  phase: "Phase 1 - Week 2 (Customer Frontend)"
+  completion: 30%
+  team_size: 1
+  deadline: "2026-11-01"
+
+workflows:
+  # WORKFLOW 1: CUSTOMER FRONTEND
+  customer_frontend:
+    name: "Customer Frontend Pages"
+    status: IN_PROGRESS
+    completion: 30%
+    duration: "2 weeks"
+    start_date: "2026-09-01"
+    end_date: "2026-09-15"
+
+    stages:
+      # STAGE 1: SEARCH PAGE
+      search_page:
+        name: "Search Page Implementation"
+        status: PENDING
+        completion: 0%
+        duration: "2 days"
+        assigned_agent: "frontend-search-agent"
+
+        requirements:
+          - Filter by category
+          - Filter by price range
+          - Sort options (price, rating, newest)
+          - Pagination (10/20/50)
+          - URL query params persistence
+          - Mobile responsive
+          - Empty state handling
+
+        blockers:
+          - backend_api_products_filters: "GET /products with filters working"
+          - backend_api_categories: "GET /categories endpoint ready"
+
+        dependencies:
+          - previous_stage: "home_page"
+          - required_components: ["ProductCard", "Filters", "Pagination"]
+
+        acceptance_criteria:
+          - "All filters work correctly"
+          - "URL params sync with state"
+          - "Pagination works 10/20/50 items"
+          - "Mobile layout responsive"
+          - "Tests pass (unit + component)"
+          - "Code reviewed and approved"
+
+        commits_expected:
+          - "feat: implement search page with filters"
+
+        agent_rules:
+          - "Use React hooks for state management"
+          - "Validate with Zod schemas"
+          - "Use React Query for API calls"
+          - "No mock data - call real API"
+          - "100% TypeScript (no any)"
+          - "Test critical paths"
+
+      # STAGE 2: COLLECTION PAGE
+      collection_page:
+        name: "Collection Page Implementation"
+        status: PENDING
+        completion: 0%
+        duration: "1 day"
+        assigned_agent: "frontend-collection-agent"
+
+        requirements:
+          - Dynamic category filtering
+          - Reuse search component
+          - Navigation from home
+          - Show category title
+
+        blockers:
+          - search_page: "Search page must be done first"
+
+        dependencies:
+          - previous_stage: "search_page"
+          - required_components: ["SearchPage (reused)"]
+
+        acceptance_criteria:
+          - "Collection page shows correct category"
+          - "Filters pre-filled by category"
+          - "Navigation works from home"
+          - "Mobile responsive"
+          - "Tests pass"
+
+        commits_expected:
+          - "feat: implement collection page"
+
+        agent_rules:
+          - "Reuse search component - DRY principle"
+          - "Dynamic route [slug]"
+          - "Pre-filter by category_id"
+
+      # STAGE 3: PRODUCT DETAIL
+      product_detail_upgrade:
+        name: "Product Detail Page Upgrade"
+        status: PENDING
+        completion: 30%
+        duration: "1.5 days"
+        assigned_agent: "frontend-product-detail-agent"
+
+        requirements:
+          - Image carousel with thumbnails
+          - Complete specifications table
+          - Reviews section (mock initially)
+          - Related products carousel
+          - Add to cart integration
+          - Wishlist button
+          - Out of stock handling
+          - Breadcrumb navigation
+
+        blockers:
+          - backend_api_product_detail: "GET /products/:id with full specs"
+          - backend_api_related_products: "GET /products/related endpoint"
+
+        dependencies:
+          - previous_stage: "search_page"
+          - required_components: ["ImageCarousel", "ReviewsSection", "ProductSpecs"]
+
+        acceptance_criteria:
+          - "Image carousel works (swipe on mobile)"
+          - "All specs display correctly"
+          - "Related products show"
+          - "Add to cart works"
+          - "Out of stock state handled"
+          - "Tests pass"
+          - "Lighthouse score 90+"
+
+        commits_expected:
+          - "feat: complete product detail page"
+
+        agent_rules:
+          - "Optimize images for web"
+          - "Lazy load related products"
+          - "Add proper alt tags"
+          - "Handle API errors gracefully"
+
+      # STAGE 4: CART PAGE
+      cart_page:
+        name: "Cart Page Implementation"
+        status: PENDING
+        completion: 0%
+        duration: "1.5 days"
+        assigned_agent: "frontend-cart-agent"
+
+        requirements:
+          - Display cart items
+          - Update quantity (+ / -)
+          - Remove items
+          - Calculate totals (subtotal, shipping, tax)
+          - Coupon field (mock)
+          - Empty state
+          - Persist to localStorage + API
+          - Proceed to checkout CTA
+
+        blockers:
+          - backend_api_cart: "Cart API endpoints (GET/PUT/DELETE)"
+
+        dependencies:
+          - previous_stage: "product_detail_upgrade"
+          - required_components: ["CartItem", "OrderSummary", "QuantityControl"]
+
+        acceptance_criteria:
+          - "Add/remove items works"
+          - "Quantity updates persist"
+          - "Totals calculated correctly"
+          - "Coupon field present (mock)"
+          - "Empty state shows"
+          - "localStorage persists"
+          - "Tests pass"
+
+        commits_expected:
+          - "feat: implement cart page with full functionality"
+
+        agent_rules:
+          - "Create CartContext for state"
+          - "Validate with React Query"
+          - "Persist to localStorage"
+          - "Calculate tax at 5%"
+          - "Mock shipping at $10"
+
+      # STAGE 5: CHECKOUT PAGE
+      checkout_page:
+        name: "Checkout Page (Multi-step Form)"
+        status: PENDING
+        completion: 0%
+        duration: "3 days"
+        assigned_agent: "frontend-checkout-agent"
+
+        requirements:
+          - Multi-step form (3 steps)
+          - Step 1: Shipping address selection + new address form
+          - Step 2: Delivery options (mock)
+          - Step 3: Review & confirm
+          - Form validation (Zod)
+          - Only logged in users
+          - Address API integration
+          - Order creation (POST /orders)
+          - Success page + redirect
+          - Error handling + retry
+
+        blockers:
+          - backend_api_addresses: "Addresses CRUD endpoints"
+          - backend_api_orders: "Orders creation endpoint"
+          - auth_context: "User must be authenticated"
+
+        dependencies:
+          - previous_stage: "cart_page"
+          - required_components: ["AddressForm", "StepIndicator", "OrderSummary"]
+
+        acceptance_criteria:
+          - "Multi-step form works"
+          - "Address selection functional"
+          - "Create new address works"
+          - "Shipping methods display (mock)"
+          - "Order review shows all info"
+          - "Order creation succeeds"
+          - "Success page shows confirmation"
+          - "Error handling + retry logic"
+          - "Mobile responsive"
+          - "Tests pass (all steps)"
+
+        commits_expected:
+          - "feat: implement checkout page (multi-step form)"
+          - "feat: checkout payment mock (technical debt)"
+
+        agent_rules:
+          - "Validate each step before proceeding"
+          - "Save state in context"
+          - "Handle address creation inline"
+          - "Mock shipping methods"
+          - "Clear cart after order"
+          - "Require authentication (redirect if not)"
+
+      # STAGE 6: PROFILE PAGE
+      profile_page:
+        name: "Profile Page with Tabs"
+        status: PENDING
+        completion: 0%
+        duration: "2 days"
+        assigned_agent: "frontend-profile-agent"
+
+        requirements:
+          - Tabbed interface (4 tabs)
+          - Tab 1: Personal info (edit)
+          - Tab 2: Addresses (CRUD complete)
+          - Tab 3: Settings (password change)
+          - Tab 4: Logout
+          - Avatar upload
+          - Form validation
+          - API integration (all endpoints)
+          - Success messages
+          - Only logged in users
+
+        blockers:
+          - backend_api_users_profile: "Profile CRUD endpoints"
+          - backend_api_addresses_crud: "Full address CRUD"
+          - backend_api_password: "Password change endpoint"
+
+        dependencies:
+          - previous_stage: "checkout_page"
+          - required_stage: "auth_system"
+          - required_components: ["TabsNav", "AddressForm", "AvatarUpload"]
+
+        acceptance_criteria:
+          - "All tabs functional"
+          - "Edit profile works"
+          - "Address CRUD complete (add/edit/delete/default)"
+          - "Password change works"
+          - "Avatar upload works"
+          - "All forms validated"
+          - "API calls succeed"
+          - "Success messages show"
+          - "Mobile responsive"
+          - "Tests pass (all tabs)"
+
+        commits_expected:
+          - "feat: implement profile page with all features"
+          - "feat: complete address management (CRUD)"
+
+        agent_rules:
+          - "Create ProfileContext"
+          - "Handle image uploads (to API or S3)"
+          - "Require authentication"
+          - "Validate all forms with Zod"
+          - "Show success/error toast"
+          - "Sidebar sticky on scroll"
+
+      # STAGE 7: ORDERS PAGES
+      orders_pages:
+        name: "Orders and Order Details Pages"
+        status: PENDING
+        completion: 0%
+        duration: "1 day"
+        assigned_agent: "frontend-orders-agent"
+
+        requirements:
+          - Orders list page (pagination)
+          - Order card component
+          - Status badges
+          - Order details page
+          - Timeline visualization
+          - Shipping info display
+          - Price breakdown
+          - Tracking (mock)
+          - Invoice download (mock)
+          - Reorder button (mock)
+
+        blockers:
+          - backend_api_orders_list: "GET /orders endpoint"
+          - backend_api_order_detail: "GET /orders/:id endpoint"
+
+        dependencies:
+          - previous_stage: "profile_page"
+          - required_components: ["OrderCard", "Timeline", "OrderSummary"]
+
+        acceptance_criteria:
+          - "Orders list shows all user orders"
+          - "Pagination works"
+          - "Status badges display correctly"
+          - "Order details page loads"
+          - "Timeline shows events"
+          - "Tracking displays (mock)"
+          - "Mobile responsive"
+          - "Tests pass"
+
+        commits_expected:
+          - "feat: implement orders and order details pages"
+
+        agent_rules:
+          - "Use React Query for caching"
+          - "Format dates consistently"
+          - "Show status timeline visually"
+          - "Mock tracking/invoice for now"
+          - "Only show user's own orders"
+
+# BLOCKERS & DEPENDENCIES
+blockers:
+  backend_api_products_filters:
+    status: BLOCKED
+    resolved_by: "Backend team"
+    blocking: ["search_page", "collection_page"]
+    resolution_criteria: "GET /products?category=X&price=Y&sort=Z working"
+
+  backend_api_cart:
+    status: BLOCKED
+    resolved_by: "Backend team"
+    blocking: ["cart_page", "checkout_page"]
+    resolution_criteria: "All cart endpoints implemented and tested"
+
+  backend_api_orders:
+    status: BLOCKED
+    resolved_by: "Backend team"
+    blocking: ["checkout_page", "orders_pages"]
+    resolution_criteria: "Orders CRUD endpoints ready"
+
+  backend_api_addresses_crud:
+    status: BLOCKED
+    resolved_by: "Backend team"
+    blocking: ["profile_page", "checkout_page"]
+    resolution_criteria: "Full address CRUD working"
+
+  auth_system:
+    status: RESOLVED
+    blocking: ["checkout_page", "profile_page", "orders_pages"]
+    resolution_criteria: "AuthContext + login/register working"
+
+# AGENTS CONFIGURATION
+agents:
+  frontend_search_agent:
+    name: "Frontend Search Agent"
+    capabilities:
+      - "Implement React components"
+      - "Fetch from API"
+      - "State management (React Query)"
+      - "Form validation (Zod)"
+      - "Write tests"
+      - "Create commits"
+    rules:
+      - "No mock data - use real API"
+      - "100% TypeScript"
+      - "React Query for server state"
+      - "Zod for validation"
+      - "Tests required"
+    tasks_queue: []
+
+  frontend_checkout_agent:
+    name: "Frontend Checkout Agent"
+    capabilities:
+      - "Multi-step forms"
+      - "Context API"
+      - "Form validation"
+      - "API integration"
+      - "Error handling"
+      - "Tests"
+    rules:
+      - "Validate each step"
+      - "Save state in context"
+      - "Handle errors gracefully"
+      - "Clear cart after order"
+      - "Require authentication"
+    tasks_queue: []
+
+  frontend_profile_agent:
+    name: "Frontend Profile Agent"
+    capabilities:
+      - "Tabbed interfaces"
+      - "CRUD operations"
+      - "File uploads"
+      - "Form validation"
+      - "API integration"
+      - "Tests"
+    rules:
+      - "All tabs independent"
+      - "Full CRUD for addresses"
+      - "Require authentication"
+      - "Show success messages"
+      - "Handle errors"
+    tasks_queue: []
+
+# METRICS & TRACKING
+metrics:
+  current_completion: 30%
+  target_completion: 100%
+  timeline: "2 weeks"
+  blockers_count: 5
+  resolved_blockers: 1
+  pending_blockers: 4
+
+  progress_by_stage:
+    home_page: 80%
+    search_page: 0%
+    collection_page: 0%
+    product_detail_upgrade: 30%
+    cart_page: 0%
+    checkout_page: 0%
+    profile_page: 0%
+    orders_pages: 0%
+
+# DECISION LOG (Add here when making decisions)
+decisions: []
+
+# TECHNICAL DEBT
+technical_debt:
+  - id: "td_001"
+    name: "Payment Processing Mock"
+    description: "Checkout uses mock payment - replace in Phase 2"
+    severity: "HIGH"
+    blocked_by: "Payment API integration"
+    resolve_in: "Phase 2"
+
+  - id: "td_002"
+    name: "Shipping Calculation Mock"
+    description: "Fixed shipping cost - implement real calculation"
+    severity: "MEDIUM"
+    blocked_by: "Shipping API"
+    resolve_in: "Phase 2"
+
+  - id: "td_003"
+    name: "Invoice Download Mock"
+    description: "Invoice download shows mock - implement real PDF"
+    severity: "LOW"
+    blocked_by: "PDF generation service"
+    resolve_in: "Phase 3"
