@@ -1,91 +1,12 @@
 'use client'
 
 import Link from 'next/link'
-import { useState, useEffect } from 'react'
 import { ProductCard } from '@/components/ProductCard'
-import { Product } from '@/types'
+import { useProducts } from '@/hooks/useProducts'
 
 export default function Home() {
-  const [featuredProducts, setFeaturedProducts] = useState<Product[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-
-  useEffect(() => {
-    // Mock featured products - in production, fetch from API
-    const mockProducts: Product[] = [
-      {
-        id: '1',
-        name: 'Wireless Headphones',
-        description: 'Premium wireless headphones with noise cancellation',
-        price: 199.99,
-        image_url: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500&h=500&fit=crop',
-        category_id: 'electronics',
-        in_stock: true,
-        rating: 4.5,
-        reviews_count: 128,
-      },
-      {
-        id: '2',
-        name: 'Smart Watch',
-        description: 'Advanced fitness tracking smartwatch',
-        price: 299.99,
-        image_url: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500&h=500&fit=crop',
-        category_id: 'electronics',
-        in_stock: true,
-        rating: 4.8,
-        reviews_count: 256,
-      },
-      {
-        id: '3',
-        name: 'Backpack Pro',
-        description: 'Durable laptop backpack with multiple compartments',
-        price: 89.99,
-        image_url: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=500&h=500&fit=crop',
-        category_id: 'accessories',
-        in_stock: true,
-        rating: 4.6,
-        reviews_count: 89,
-      },
-      {
-        id: '4',
-        name: 'USB-C Hub',
-        description: '7-in-1 USB-C hub with multiple ports',
-        price: 49.99,
-        image_url: 'https://images.unsplash.com/photo-1625948515291-69613efd103f?w=500&h=500&fit=crop',
-        category_id: 'electronics',
-        in_stock: true,
-        rating: 4.4,
-        reviews_count: 67,
-      },
-      {
-        id: '5',
-        name: 'Desk Lamp',
-        description: 'LED desk lamp with adjustable brightness',
-        price: 59.99,
-        image_url: 'https://images.unsplash.com/photo-1565636192335-14c46e7f6c67?w=500&h=500&fit=crop',
-        category_id: 'home',
-        in_stock: true,
-        rating: 4.7,
-        reviews_count: 145,
-      },
-      {
-        id: '6',
-        name: 'Mechanical Keyboard',
-        description: 'RGB mechanical keyboard with hot-swap switches',
-        price: 149.99,
-        image_url: 'https://images.unsplash.com/photo-1587829191301-72e332e2ad07?w=500&h=500&fit=crop',
-        category_id: 'electronics',
-        in_stock: false,
-        rating: 4.9,
-        reviews_count: 312,
-      },
-    ]
-
-    // Simulate loading
-    setTimeout(() => {
-      setFeaturedProducts(mockProducts)
-      setIsLoading(false)
-    }, 500)
-  }, [])
+  const { data, isLoading, isError } = useProducts({ limit: 6, sort: 'popularity' })
+  const featuredProducts = data?.data || []
 
   return (
     <div className="container mx-auto px-4">
