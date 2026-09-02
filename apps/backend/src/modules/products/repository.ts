@@ -1,4 +1,4 @@
-import type { Prisma } from '../../generated/prisma/client';
+import { Prisma } from '../../generated/prisma/client';
 import { prisma } from '../../shared/database/prisma';
 
 type CreateProductData = {
