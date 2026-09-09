@@ -42,6 +42,13 @@
   - TypeScript strict mode
   - All endpoints validated
 
+### Data
+- ✅ **Faker Seed** (2026-09-09)
+  - `docker compose exec backend node dist/database/seed.js`
+  - 12 categorias pt-BR, 10k produtos, 2k usuários, 4k endereços, 10k pedidos (30k itens) em ~40s
+  - Volumes via `SEED_PRODUCTS` / `SEED_USERS` / `SEED_ORDERS`; determinístico via `SEED_RANDOM_SEED`
+  - Contas: `admin@ecommerce.dev` / `Admin123!` e `cliente@ecommerce.dev` / `Cliente123!`
+
 ### Frontend Pages
 - ✅ **Cart Page** (2026-09-02)
   - CartContext for state management
@@ -214,6 +221,7 @@ Frontend (apps/frontend/)
 - ✅ Fixed auth response mapping and register flow
 - ⚠️ Discovered: frontend never actually talked to the backend (URL prefix + invented types)
 - 🔄 api_contract_alignment stage opened (40%)
+- ✅ Faker seed: 10k products / 2k users / 10k orders, runs inside the container
 
 ### Day 2 (2026-09-02)
 - ✅ Implemented backend categories module

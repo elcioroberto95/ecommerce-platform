@@ -93,6 +93,42 @@ workflows:
           - "No invented types: every type mirrors a backend response"
           - "npm run build passes in Docker"
 
+
+      # STAGE 0.6: SEED DATA (user request: "seeds estao porcos, usar faker, muita coisa no banco")
+      seed_data:
+        name: "Realistic Faker Seed"
+        status: COMPLETE
+        completion: 100%
+        completed_date: "2026-09-09"
+        duration: "0.5 day"
+        assigned_agent: "backend-data-agent"
+        started_date: "2026-09-09"
+
+        implementation:
+          - "apps/backend/src/database/seed.ts (compiled into dist, runs inside the container)"
+          - "apps/backend/src/database/seed/catalog.ts (12 pt-BR categories + product templates)"
+          - "apps/backend/src/database/seed/config.ts (SEED_PRODUCTS / SEED_USERS / SEED_ORDERS / SEED_RANDOM_SEED)"
+          - "@faker-js/faker (pt_BR) as runtime dependency"
+          - "Per-product price ranges (mousepad R$19-189, notebook gamer R$4.4k-16k)"
+          - "O(k) distinct sampling instead of shuffling 10k products per order"
+
+        verified:
+          - "Ran in container: 10000 products, 2002 users, 3999 addresses, 613 carts, 10000 orders, 30173 items in 39s"
+          - "Integrity: order.total = subtotal + shipping (0 mismatches); items sum = subtotal (0 mismatches)"
+          - "No duplicate emails; every user has a default address; orders spread over 12 months"
+          - "API: /categories 12, /products?category=&sort=price_desc, /products?search= all return seeded data"
+          - "Login cliente@ecommerce.dev works"
+          - "Old scripts/seed.ts removed (imported @prisma/client, incompatible with prisma-client generator)"
+
+        run: "docker compose exec backend node dist/database/seed.js"
+
+        acceptance_criteria:
+          - "Seed runs inside Docker without tsx"
+          - "Default volume: 12 categories, 10000 products, 2002 users, ~4000 addresses, 10000 orders (~30k order items)"
+          - "Deterministic (same SEED_RANDOM_SEED => same data)"
+          - "Known accounts printed: admin@ecommerce.dev / cliente@ecommerce.dev"
+          - "Products coherent with their category, pt-BR text"
+
       # STAGE 1: SEARCH PAGE
       search_page:
         name: "Search Page Implementation"
@@ -489,6 +525,13 @@ decisions:
     priority: "HIGH"
     by: "User"
     comment: "Everything runs in Docker (docker compose up --build). Never run backend/frontend directly on the host."
+  - id: "dec_003"
+    date: "2026-09-09"
+    stage: "seed_data"
+    action: "START"
+    priority: "HIGH"
+    by: "User"
+    comment: "Replace hardcoded seed with faker-based generator producing a large dataset."
 
 # TECHNICAL DEBT
 technical_debt:
