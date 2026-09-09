@@ -141,13 +141,16 @@ function buildProducts(categories: CategoryRow[]): ProductRow[] {
     const outOfStock = faker.number.float() < seedConfig.outOfStockRatio;
     const inactive = faker.number.float() < seedConfig.inactiveRatio;
     const createdAt = pastDate(730);
+    const id = randomUUID();
 
     return {
-      id: randomUUID(),
+      id,
       name,
       description: buildProductDescription(name),
       price,
       stock: outOfStock ? 0 : faker.number.int({ min: 1, max: 250 }),
+      // Deterministic placeholder photo per product until real media exists.
+      imageUrl: `https://picsum.photos/seed/${id}/600/600`,
       categoryId: category.id,
       active: !inactive,
       createdAt,

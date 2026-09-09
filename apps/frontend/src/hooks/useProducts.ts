@@ -1,21 +1,13 @@
 import { useQuery } from '@tanstack/react-query'
 import { productsService } from '@/services/products'
+import type { ProductFilters } from '@/types'
 
-interface UseProductsOptions {
-  page?: number
-  limit?: number
-  category_id?: string
-  search?: string
-  sort?: 'newest' | 'price_asc' | 'price_desc' | 'popularity'
-  min_price?: number
-  max_price?: number
-}
-
-export function useProducts(options?: UseProductsOptions) {
+export function useProducts(filters?: ProductFilters) {
   return useQuery({
-    queryKey: ['products', options],
-    queryFn: () => productsService.getProducts(options),
+    queryKey: ['products', filters],
+    queryFn: () => productsService.getProducts(filters),
     staleTime: 1000 * 60 * 5, // 5 minutes
+    placeholderData: (previous) => previous, // keep the grid while a new page/filter loads
   })
 }
 
@@ -28,12 +20,12 @@ export function useProductById(id: string) {
   })
 }
 
-export function useProductSearch(query: string, limit?: number) {
+export function useRelatedProducts(id: string, limit = 3) {
   return useQuery({
-    queryKey: ['product-search', query, limit],
-    queryFn: () => productsService.searchProducts(query, limit),
-    enabled: query.length > 0,
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    queryKey: ['product-related', id, limit],
+    queryFn: () => productsService.getRelatedProducts(id, limit),
+    enabled: !!id,
+    staleTime: 1000 * 60 * 10, // 10 minutes
   })
 }
 

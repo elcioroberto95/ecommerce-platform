@@ -49,6 +49,7 @@ model Product {
   description String?
   price       Decimal  @db.Decimal(10, 2)
   stock       Int      @default(0)
+  imageUrl    String?
   categoryId  String?
   active      Boolean  @default(true)
   createdAt   DateTime @default(now())

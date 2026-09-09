@@ -5,8 +5,9 @@ import { ProductCard } from '@/components/ProductCard'
 import { useProducts } from '@/hooks/useProducts'
 
 export default function Home() {
-  const { data, isLoading, isError } = useProducts({ limit: 6, sort: 'popularity' })
-  const featuredProducts = data?.data || []
+  // "Featured" = newest products that can actually be bought.
+  const { data, isLoading, isError } = useProducts({ limit: 6, sort: 'newest', inStock: true })
+  const featuredProducts = data?.items ?? []
 
   return (
     <div className="container mx-auto px-4">
@@ -54,6 +55,15 @@ export default function Home() {
             {[...Array(6)].map((_, i) => (
               <div key={i} className="bg-slate-200 rounded-lg h-96 animate-pulse" />
             ))}
+          </div>
+        ) : isError ? (
+          <div className="rounded-lg border border-red-200 bg-red-50 p-8 text-center">
+            <p className="text-red-700 font-medium">We couldn&apos;t load the featured products.</p>
+            <p className="text-sm text-red-600 mt-1">Please try again in a moment.</p>
+          </div>
+        ) : featuredProducts.length === 0 ? (
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-8 text-center text-slate-600">
+            No products available yet.
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">

@@ -6,6 +6,8 @@ type CreateProductData = {
   description?: string | null;
   price: number;
   stock: number;
+  imageUrl?: string | null;
+  categoryId?: string | null;
 };
 
 type UpdateProductData = {
@@ -13,6 +15,8 @@ type UpdateProductData = {
   description?: string | null;
   price?: number;
   stock?: number;
+  imageUrl?: string | null;
+  categoryId?: string | null;
 };
 
 type FindManyParams = {
@@ -32,7 +36,15 @@ const productSelect = {
   description: true,
   price: true,
   stock: true,
+  imageUrl: true,
   categoryId: true,
+  category: {
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+    },
+  },
   active: true,
   createdAt: true,
   updatedAt: true,

@@ -59,7 +59,7 @@ workflows:
       api_contract_alignment:
         name: "Frontend <-> Backend API Contract Alignment"
         status: IN_PROGRESS
-        completion: 40%
+        completion: 75%
         duration: "1 day"
         assigned_agent: "frontend-integration-agent"
         started_date: "2026-09-09"
@@ -75,16 +75,21 @@ workflows:
           - "CartProvider only fetches /cart when authenticated"
           - "AuthContext maps { accessToken, user }; register = POST /users + login"
           - "User type matches backend (role CUSTOMER|ADMIN)"
+          - "Backend: Product.imageUrl column + migration; products responses include category {id,name,slug}"
+          - "Backend: validateParams added to every /products/:id route (getById and related returned 500)"
+          - "Frontend: Product/Category/ProductsResponse/ProductFilters types mirror backend exactly"
+          - "Frontend: productsService uses { items, meta }, { data } for categories, /products/:id/related"
+          - "Frontend: ProductCard uses imageUrl, category.name, stock, BRL prices, real add-to-cart (auth redirect)"
+          - "Frontend: Home 'Featured' = newest in-stock products from the API, with error/empty states"
+          - "Frontend: /products wired to the API (server-side search/category/price/stock/sort + pagination), mocks removed"
+          - "Frontend: /products/[id] wired to the API + related products, mocks removed"
 
         remaining:
           - "Cart types: productId / product.name / product.price / summary.total (front still uses product_id etc.)"
-          - "Product type: backend has stock/categoryId/active; front expects image_url/in_stock/rating/reviews_count"
-          - "Products service: backend returns { items, meta }; front reads { data, pagination }"
-          - "Products filters: category/priceMin/priceMax/sort (front sends category_id/min_price/max_price)"
-          - "Remove GET /products/search usage (use /products?search=)"
           - "forgot-password page calls nonexistent endpoint - decide: implement or hide"
-          - "Decide: add imageUrl/rating to Product in backend or drop from UI"
-          - "Replace hardcoded mock products in /products and /products/[id] with real API"
+          - "Header search box does nothing - wire to /products?search="
+          - "Frontend eslint config is broken (flat config + eslint 8 ignores src) - fix so lint runs"
+          - "Ratings/reviews: not in the domain; UI removed. Backend sort=rating and ratingMin are dead code"
 
         acceptance_criteria:
           - "Login/register/logout work in Docker"
@@ -92,7 +97,6 @@ workflows:
           - "Cart page works end-to-end against real backend"
           - "No invented types: every type mirrors a backend response"
           - "npm run build passes in Docker"
-
 
       # STAGE 0.6: SEED DATA (user request: "seeds estao porcos, usar faker, muita coisa no banco")
       seed_data:

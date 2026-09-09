@@ -1,140 +1,64 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { ProductCard } from '@/components/ProductCard'
-import { Product } from '@/types'
+import { useCategories, useProducts } from '@/hooks/useProducts'
+import { formatCurrency } from '@/lib/format'
+import type { ProductSort } from '@/types'
+
+const PAGE_SIZE = 12
+const MAX_PRICE = 16000
+const SEARCH_DEBOUNCE_MS = 300
+
+interface Filters {
+  search: string
+  category: string // '' = all
+  maxPrice: number
+  inStockOnly: boolean
+  sort: ProductSort
+}
+
+const DEFAULT_FILTERS: Filters = {
+  search: '',
+  category: '',
+  maxPrice: MAX_PRICE,
+  inStockOnly: false,
+  sort: 'relevance',
+}
 
 export default function ProductsPage() {
-  const [products, setProducts] = useState<Product[]>([])
-  const [filteredProducts, setFilteredProducts] = useState<Product[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS)
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [page, setPage] = useState(1)
 
-  const [filters, setFilters] = useState({
-    search: '',
-    category: 'all',
-    minPrice: 0,
-    maxPrice: 1000,
-    inStockOnly: false,
-    sortBy: 'featured',
+  // Debounce the search box so we don't hit the API on every keystroke.
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(filters.search.trim()), SEARCH_DEBOUNCE_MS)
+    return () => clearTimeout(timer)
+  }, [filters.search])
+
+  // Any filter change resets pagination.
+  useEffect(() => {
+    setPage(1)
+  }, [debouncedSearch, filters.category, filters.maxPrice, filters.inStockOnly, filters.sort])
+
+  const { data: categories } = useCategories()
+
+  const { data, isLoading, isError, isFetching } = useProducts({
+    page,
+    limit: PAGE_SIZE,
+    search: debouncedSearch || undefined,
+    category: filters.category || undefined,
+    priceMax: filters.maxPrice < MAX_PRICE ? filters.maxPrice : undefined,
+    inStock: filters.inStockOnly || undefined,
+    sort: filters.sort,
   })
 
-  useEffect(() => {
-    // Mock products - in production, fetch from API
-    const mockProducts: Product[] = [
-      {
-        id: '1',
-        name: 'Wireless Headphones',
-        description: 'Premium wireless headphones with noise cancellation',
-        price: 199.99,
-        image_url: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500&h=500&fit=crop',
-        category_id: 'electronics',
-        in_stock: true,
-        rating: 4.5,
-        reviews_count: 128,
-      },
-      {
-        id: '2',
-        name: 'Smart Watch',
-        description: 'Advanced fitness tracking smartwatch',
-        price: 299.99,
-        image_url: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500&h=500&fit=crop',
-        category_id: 'electronics',
-        in_stock: true,
-        rating: 4.8,
-        reviews_count: 256,
-      },
-      {
-        id: '3',
-        name: 'Backpack Pro',
-        description: 'Durable laptop backpack with multiple compartments',
-        price: 89.99,
-        image_url: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=500&h=500&fit=crop',
-        category_id: 'accessories',
-        in_stock: true,
-        rating: 4.6,
-        reviews_count: 89,
-      },
-      {
-        id: '4',
-        name: 'USB-C Hub',
-        description: '7-in-1 USB-C hub with multiple ports',
-        price: 49.99,
-        image_url: 'https://images.unsplash.com/photo-1625948515291-69613efd103f?w=500&h=500&fit=crop',
-        category_id: 'electronics',
-        in_stock: true,
-        rating: 4.4,
-        reviews_count: 67,
-      },
-      {
-        id: '5',
-        name: 'Desk Lamp',
-        description: 'LED desk lamp with adjustable brightness',
-        price: 59.99,
-        image_url: 'https://images.unsplash.com/photo-1565636192335-14c46e7f6c67?w=500&h=500&fit=crop',
-        category_id: 'home',
-        in_stock: true,
-        rating: 4.7,
-        reviews_count: 145,
-      },
-      {
-        id: '6',
-        name: 'Mechanical Keyboard',
-        description: 'RGB mechanical keyboard with hot-swap switches',
-        price: 149.99,
-        image_url: 'https://images.unsplash.com/photo-1587829191301-72e332e2ad07?w=500&h=500&fit=crop',
-        category_id: 'electronics',
-        in_stock: false,
-        rating: 4.9,
-        reviews_count: 312,
-      },
-    ]
+  const products = data?.items ?? []
+  const meta = data?.meta
+  const totalPages = meta?.totalPages ?? 1
 
-    setTimeout(() => {
-      setProducts(mockProducts)
-      setIsLoading(false)
-    }, 300)
-  }, [])
-
-  // Apply filters
-  useEffect(() => {
-    let result = [...products]
-
-    // Search filter
-    if (filters.search) {
-      const search = filters.search.toLowerCase()
-      result = result.filter(
-        (p) =>
-          p.name.toLowerCase().includes(search) ||
-          p.description.toLowerCase().includes(search)
-      )
-    }
-
-    // Category filter
-    if (filters.category !== 'all') {
-      result = result.filter((p) => p.category_id === filters.category)
-    }
-
-    // Price filter
-    result = result.filter((p) => p.price >= filters.minPrice && p.price <= filters.maxPrice)
-
-    // Stock filter
-    if (filters.inStockOnly) {
-      result = result.filter((p) => p.in_stock)
-    }
-
-    // Sorting
-    if (filters.sortBy === 'price-low') {
-      result.sort((a, b) => a.price - b.price)
-    } else if (filters.sortBy === 'price-high') {
-      result.sort((a, b) => b.price - a.price)
-    } else if (filters.sortBy === 'rating') {
-      result.sort((a, b) => b.rating - a.rating)
-    }
-
-    setFilteredProducts(result)
-  }, [products, filters])
-
-  const categories = ['all', 'electronics', 'accessories', 'home']
+  const resetFilters = () => setFilters(DEFAULT_FILTERS)
 
   return (
     <div className="container mx-auto px-4">
@@ -149,8 +73,11 @@ export default function ProductsPage() {
           <div className="bg-white border border-slate-200 rounded-lg p-6 sticky top-20 space-y-6">
             {/* Search */}
             <div>
-              <label className="block text-sm font-semibold text-slate-900 mb-2">Search</label>
+              <label htmlFor="search" className="block text-sm font-semibold text-slate-900 mb-2">
+                Search
+              </label>
               <input
+                id="search"
                 type="text"
                 placeholder="Search products..."
                 value={filters.search}
@@ -161,19 +88,30 @@ export default function ProductsPage() {
 
             {/* Category */}
             <div>
-              <label className="block text-sm font-semibold text-slate-900 mb-3">Category</label>
+              <span className="block text-sm font-semibold text-slate-900 mb-3">Category</span>
               <div className="space-y-2">
-                {categories.map((cat) => (
-                  <label key={cat} className="flex items-center gap-2 cursor-pointer">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="category"
+                    value=""
+                    checked={filters.category === ''}
+                    onChange={() => setFilters({ ...filters, category: '' })}
+                    className="w-4 h-4"
+                  />
+                  <span className="text-sm text-slate-700">All</span>
+                </label>
+                {(categories ?? []).map((category) => (
+                  <label key={category.id} className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="radio"
                       name="category"
-                      value={cat}
-                      checked={filters.category === cat}
-                      onChange={(e) => setFilters({ ...filters, category: e.target.value })}
+                      value={category.id}
+                      checked={filters.category === category.id}
+                      onChange={() => setFilters({ ...filters, category: category.id })}
                       className="w-4 h-4"
                     />
-                    <span className="text-sm text-slate-700 capitalize">{cat}</span>
+                    <span className="text-sm text-slate-700">{category.name}</span>
                   </label>
                 ))}
               </div>
@@ -181,20 +119,22 @@ export default function ProductsPage() {
 
             {/* Price Range */}
             <div>
-              <label className="block text-sm font-semibold text-slate-900 mb-3">Price Range</label>
-              <div className="space-y-2">
-                <input
-                  type="range"
-                  min="0"
-                  max="1000"
-                  value={filters.maxPrice}
-                  onChange={(e) => setFilters({ ...filters, maxPrice: parseInt(e.target.value) })}
-                  className="w-full"
-                />
-                <div className="flex justify-between text-sm text-slate-600">
-                  <span>${filters.minPrice}</span>
-                  <span>${filters.maxPrice}</span>
-                </div>
+              <label htmlFor="maxPrice" className="block text-sm font-semibold text-slate-900 mb-3">
+                Max Price
+              </label>
+              <input
+                id="maxPrice"
+                type="range"
+                min={0}
+                max={MAX_PRICE}
+                step={50}
+                value={filters.maxPrice}
+                onChange={(e) => setFilters({ ...filters, maxPrice: Number(e.target.value) })}
+                className="w-full"
+              />
+              <div className="flex justify-between text-sm text-slate-600 mt-1">
+                <span>{formatCurrency(0)}</span>
+                <span>{filters.maxPrice >= MAX_PRICE ? 'No limit' : formatCurrency(filters.maxPrice)}</span>
               </div>
             </div>
 
@@ -213,31 +153,26 @@ export default function ProductsPage() {
 
             {/* Sort */}
             <div>
-              <label className="block text-sm font-semibold text-slate-900 mb-2">Sort By</label>
+              <label htmlFor="sort" className="block text-sm font-semibold text-slate-900 mb-2">
+                Sort By
+              </label>
               <select
-                value={filters.sortBy}
-                onChange={(e) => setFilters({ ...filters, sortBy: e.target.value })}
+                id="sort"
+                value={filters.sort}
+                onChange={(e) => setFilters({ ...filters, sort: e.target.value as ProductSort })}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900"
               >
-                <option value="featured">Featured</option>
-                <option value="price-low">Price: Low to High</option>
-                <option value="price-high">Price: High to Low</option>
-                <option value="rating">Top Rated</option>
+                <option value="relevance">Relevance</option>
+                <option value="newest">Newest</option>
+                <option value="price_asc">Price: Low to High</option>
+                <option value="price_desc">Price: High to Low</option>
               </select>
             </div>
 
             {/* Reset Filters */}
             <button
-              onClick={() =>
-                setFilters({
-                  search: '',
-                  category: 'all',
-                  minPrice: 0,
-                  maxPrice: 1000,
-                  inStockOnly: false,
-                  sortBy: 'featured',
-                })
-              }
+              type="button"
+              onClick={resetFilters}
               className="w-full py-2 px-3 text-sm font-medium border border-slate-300 rounded-lg hover:bg-slate-50 transition"
             >
               Reset Filters
@@ -248,23 +183,60 @@ export default function ProductsPage() {
         {/* Main Content - Products */}
         <div className="lg:col-span-3">
           {/* Results Count */}
-          <div className="mb-6 text-sm text-slate-600">
-            Showing {filteredProducts.length} product{filteredProducts.length !== 1 ? 's' : ''}
+          <div className="mb-6 flex items-center justify-between text-sm text-slate-600">
+            <span>
+              {meta
+                ? `Showing ${products.length} of ${meta.total.toLocaleString('pt-BR')} product${meta.total !== 1 ? 's' : ''}`
+                : 'Loading products...'}
+            </span>
+            {isFetching && !isLoading && <span className="text-slate-400">Updating...</span>}
           </div>
 
           {/* Products Grid */}
           {isLoading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[...Array(6)].map((_, i) => (
+              {[...Array(PAGE_SIZE)].map((_, i) => (
                 <div key={i} className="bg-slate-200 rounded-lg h-96 animate-pulse" />
               ))}
             </div>
-          ) : filteredProducts.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredProducts.map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
+          ) : isError ? (
+            <div className="rounded-lg border border-red-200 bg-red-50 p-8 text-center">
+              <p className="text-red-700 font-medium">We couldn&apos;t load the products.</p>
+              <p className="text-sm text-red-600 mt-1">Please try again in a moment.</p>
             </div>
+          ) : products.length > 0 ? (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {products.map((product) => (
+                  <ProductCard key={product.id} product={product} />
+                ))}
+              </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="mt-10 flex items-center justify-center gap-4">
+                  <button
+                    type="button"
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page <= 1}
+                    className="px-4 py-2 text-sm font-medium border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    ← Previous
+                  </button>
+                  <span className="text-sm text-slate-600">
+                    Page {page} of {totalPages}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={page >= totalPages}
+                    className="px-4 py-2 text-sm font-medium border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Next →
+                  </button>
+                </div>
+              )}
+            </>
           ) : (
             <div className="text-center py-12">
               <svg
@@ -283,16 +255,8 @@ export default function ProductsPage() {
               <h3 className="text-xl font-semibold text-slate-900 mb-2">No products found</h3>
               <p className="text-slate-600 mb-4">Try adjusting your filters</p>
               <button
-                onClick={() =>
-                  setFilters({
-                    search: '',
-                    category: 'all',
-                    minPrice: 0,
-                    maxPrice: 1000,
-                    inStockOnly: false,
-                    sortBy: 'featured',
-                  })
-                }
+                type="button"
+                onClick={resetFilters}
                 className="px-6 py-2 text-slate-900 font-medium hover:underline"
               >
                 Clear filters

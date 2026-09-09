@@ -22,6 +22,16 @@ export const createProductSchema = z
             .int('Stock must be an integer')
             .min(0, 'Stock must be greater than or equal to zero')
             .default(0),
+
+        imageUrl: z
+            .string()
+            .trim()
+            .url('Image URL must be a valid URL')
+            .max(500, 'Image URL must have at most 500 characters')
+            .optional()
+            .nullable(),
+
+        categoryId: z.string().uuid('Invalid category id').optional().nullable(),
     })
     .strict();
 
@@ -48,6 +58,16 @@ export const updateProductSchema = z
             .int('Stock must be an integer')
             .min(0, 'Stock must be greater than or equal to zero')
             .optional(),
+
+        imageUrl: z
+            .string()
+            .trim()
+            .url('Image URL must be a valid URL')
+            .max(500, 'Image URL must have at most 500 characters')
+            .optional()
+            .nullable(),
+
+        categoryId: z.string().uuid('Invalid category id').optional().nullable(),
     })
     .strict()
     .refine(data => Object.keys(data).length > 0, {

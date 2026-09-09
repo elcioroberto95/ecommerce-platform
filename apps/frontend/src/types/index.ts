@@ -17,16 +17,68 @@ export interface LoginResponse {
   user: User
 }
 
+// Matches backend GET /categories -> data[]
+export interface Category {
+  id: string
+  name: string
+  slug: string
+  description: string | null
+  active: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export type ProductCategory = Pick<Category, 'id' | 'name' | 'slug'>
+
+// Matches backend products `productSelect` + formatProduct (price as number)
 export interface Product {
   id: string
   name: string
-  description: string
+  description: string | null
   price: number
-  image_url: string
-  category_id: string
-  in_stock: boolean
-  rating: number
-  reviews_count: number
+  stock: number
+  imageUrl: string | null
+  categoryId: string | null
+  category: ProductCategory | null
+  active: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+// Matches backend GET /products
+export interface ProductsResponse {
+  items: Product[]
+  meta: {
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+  }
+}
+
+// Matches backend GET /products/:id/related
+export interface RelatedProductsResponse {
+  items: Product[]
+  total: number
+}
+
+// Matches backend GET /categories
+export interface CategoriesResponse {
+  data: Category[]
+}
+
+// Matches backend listProductsQuerySchema
+export type ProductSort = 'relevance' | 'price_asc' | 'price_desc' | 'newest'
+
+export interface ProductFilters {
+  page?: number
+  limit?: number
+  search?: string
+  category?: string
+  priceMin?: number
+  priceMax?: number
+  inStock?: boolean
+  sort?: ProductSort
 }
 
 export interface CartItem {

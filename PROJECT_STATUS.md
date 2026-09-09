@@ -65,7 +65,7 @@
 
 ## ⏳ In Progress
 
-### 🔧 API Contract Alignment (2026-09-09) - 40%
+### 🔧 API Contract Alignment (2026-09-09) - 75%
 Triggered by: login page looping in Docker. Root cause: frontend types/routes were invented, not read from the backend (RULE 5 violation). Cart page "COMPLETE" status is provisional until this stage closes.
 
 Done:
@@ -77,11 +77,19 @@ Done:
 - ✅ CartProvider only fetches when authenticated
 - ✅ Login maps `{ accessToken, user }`; register = `POST /users` + login
 - ✅ Verified against backend container: create user 201, login 200, cart 200 with token, 401 without
+- ✅ Backend: `Product.imageUrl` + migration; product responses include `category { id, name, slug }`
+- ✅ Backend: `validateParams` on every `/products/:id*` route (detail and related returned 500 before)
+- ✅ Frontend: Product/Category/ProductsResponse types mirror the backend; service reads `{ items, meta }`
+- ✅ Home "Featured Products" shows newest in-stock products from the DB (verified in Docker via screenshot)
+- ✅ `/products` wired to the API: search, category, max price, in-stock, sort, pagination (12/page over 9.5k)
+- ✅ `/products/[id]` wired to the API with related products; all hardcoded mocks removed
+- ✅ ProductCard: real image, category name, BRL price, stock badge, add-to-cart (redirects to login if anonymous)
 
 Remaining (see `.claude/workflow.yml` → `api_contract_alignment.remaining`):
-- Cart / Product / Products-list types and services still don't match backend responses
-- Home "Featured Products" grid empty; /products pages use hardcoded mocks
+- Cart types/components still use `product_id` / `product_name` (backend: `productId`, `product.name`, `summary.total`)
+- Header search box not wired to `/products?search=`
 - forgot-password endpoint doesn't exist in backend
+- Frontend eslint config broken (flat config + ESLint 8 ignores `src`)
 
 ---
 
@@ -222,6 +230,7 @@ Frontend (apps/frontend/)
 - ⚠️ Discovered: frontend never actually talked to the backend (URL prefix + invented types)
 - 🔄 api_contract_alignment stage opened (40%)
 - ✅ Faker seed: 10k products / 2k users / 10k orders, runs inside the container
+- ✅ Home, /products and /products/[id] on real data (imageUrl + category from backend)
 
 ### Day 2 (2026-09-02)
 - ✅ Implemented backend categories module
