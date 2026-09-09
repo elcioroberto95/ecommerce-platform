@@ -1,39 +1,106 @@
 /**
  * Database seed.
  *
- * Generates a large, realistic pt-BR dataset with @faker-js/faker:
- * categories, products, users (admin + demo + generated customers), addresses,
- * carts and orders with items.
+ * Generates a large, realistic pt-BR dataset: categories, products, users
+ * (admin + demo + generated customers), addresses, carts and orders with items.
  *
  * Run inside Docker (compiled with the app):
  *   docker compose exec backend node dist/database/seed.js
  *
  * Volumes are controlled by SEED_* env vars (see ./seed/config.ts).
- * WARNING: the seed wipes every table before inserting.
+ * WARNING: the seed truncates every table before inserting.
+ *
+ * Scale notes (defaults are 5M products, 5M users, 5M orders ≈ 45M rows)
+ * - Everything is streamed. A chunk is generated, inserted with one
+ *   `INSERT ... SELECT FROM unnest()` statement per table (N array parameters
+ *   instead of N x rows parameters) and released. Memory stays flat.
+ * - Users, their addresses, carts and orders are built in the same pass, so
+ *   orders are spread over every user without keeping users in memory.
+ * - Hot loops use a tiny seeded PRNG and word lists instead of faker: faker
+ *   costs tens of microseconds per call, which adds up to hours at this size.
+ * - Carts/orders reference products through a reservoir sample of sellable
+ *   products (uniform, fixed size) taken while products stream by.
  */
 
 import { randomUUID } from 'node:crypto';
 
-import { fakerPT_BR as faker } from '@faker-js/faker';
 import { hash } from 'bcryptjs';
 
 import { prisma } from '../shared/database/prisma';
-import type { OrderStatus, Prisma } from '../generated/prisma/client';
 import { KNOWN_ACCOUNTS, seedConfig } from './seed/config';
 import {
+  ADDRESS_COMPLEMENTS,
   ADDRESS_LABELS,
   BRANDS,
   CATEGORY_TEMPLATES,
+  CITIES,
+  EMAIL_DOMAINS,
   FEATURES,
+  FIRST_NAMES,
+  LAST_NAMES,
   NEIGHBORHOODS,
   PRODUCT_MODIFIERS,
+  STREET_NAMES,
+  STREET_TYPES,
   USE_CASES,
   WARRANTIES,
+  type CategoryTemplate,
 } from './seed/catalog';
 
 const PASSWORD_SALT_ROUNDS = 10;
 const FREE_SHIPPING_THRESHOLD = 300;
-const SHIPPING_OPTIONS = [14.9, 19.9, 24.9, 29.9];
+const SHIPPING_OPTIONS = ['14.90', '19.90', '24.90', '29.90'];
+const DAY_MS = 86_400_000;
+
+type SeedOrderStatus = 'FINISHED' | 'PROCESSING' | 'PENDING' | 'CANCELED';
+const PROGRESS_EVERY_ROWS = 250_000;
+
+// ---------------------------------------------------------------------------
+// Fast deterministic PRNG (mulberry32)
+// ---------------------------------------------------------------------------
+
+function createRng(seed: number): () => number {
+  let state = seed >>> 0;
+  return () => {
+    state = (state + 0x6d2b79f5) >>> 0;
+    let t = state;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const rng = createRng(seedConfig.randomSeed);
+
+function randomInt(min: number, max: number): number {
+  return min + Math.floor(rng() * (max - min + 1));
+}
+
+function pick<T>(items: readonly T[]): T {
+  return items[Math.floor(rng() * items.length)] as T;
+}
+
+/** `count` distinct random elements in O(count), no shuffling of the source. */
+function sampleDistinct<T>(source: T[], min: number, max: number): T[] {
+  const count = Math.min(randomInt(min, max), source.length);
+  const picked = new Set<number>();
+  while (picked.size < count) {
+    picked.add(randomInt(0, source.length - 1));
+  }
+  return Array.from(picked, index => source[index] as T);
+}
+
+function randomPastIso(maxDays: number): string {
+  return new Date(Date.now() - rng() * maxDays * DAY_MS).toISOString();
+}
+
+function pickOrderStatus(): SeedOrderStatus {
+  const roll = rng() * 100;
+  if (roll < 55) return 'FINISHED';
+  if (roll < 70) return 'PROCESSING';
+  if (roll < 85) return 'PENDING';
+  return 'CANCELED';
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -43,282 +110,427 @@ function money(value: number): string {
   return value.toFixed(2);
 }
 
-function chunk<T>(items: T[], size: number): T[][] {
-  const chunks: T[][] = [];
-  for (let i = 0; i < items.length; i += size) {
-    chunks.push(items.slice(i, i + size));
-  }
-  return chunks;
-}
-
-function pastDate(maxDays: number): Date {
-  return faker.date.recent({ days: maxDays });
-}
-
-/**
- * Picks `count` distinct random elements. faker.helpers.arrayElements shuffles
- * the whole source array on every call, which is O(n) per order and becomes the
- * bottleneck with 10k products x 10k orders. Sampling indices is O(count).
- */
-function sampleDistinct<T>(source: T[], min: number, max: number): T[] {
-  const count = Math.min(faker.number.int({ min, max }), source.length);
-  const picked = new Set<number>();
-  while (picked.size < count) {
-    picked.add(faker.number.int({ min: 0, max: source.length - 1 }));
-  }
-  return Array.from(picked, index => source[index] as T);
+function stripAccents(value: string): string {
+  return value.normalize('NFD').replace(/\p{M}/gu, '');
 }
 
 function formatDuration(startedAt: number): string {
   return `${((Date.now() - startedAt) / 1000).toFixed(1)}s`;
 }
 
-async function insertInBatches<T>(
-  label: string,
-  rows: T[],
-  insert: (batch: T[]) => Promise<unknown>
-): Promise<void> {
-  const startedAt = Date.now();
-  for (const batch of chunk(rows, seedConfig.batchSize)) {
-    await insert(batch);
+function fmt(n: number): string {
+  return n.toLocaleString('en-US');
+}
+
+function logRow(label: string, rows: number, startedAt: number): void {
+  const seconds = (Date.now() - startedAt) / 1000;
+  const rate = seconds > 0 ? Math.round(rows / seconds) : rows;
+  console.log(`  ✔ ${label.padEnd(12)} ${fmt(rows).padStart(11)} rows  (${formatDuration(startedAt)}, ${fmt(rate)} rows/s)`);
+}
+
+class Progress {
+  private next = PROGRESS_EVERY_ROWS;
+  private readonly startedAt = Date.now();
+
+  constructor(
+    private readonly label: string,
+    private readonly total: number
+  ) {}
+
+  report(done: number): void {
+    if (done < this.next && done < this.total) {
+      return;
+    }
+    const seconds = (Date.now() - this.startedAt) / 1000;
+    const rate = seconds > 0 ? Math.round(done / seconds) : done;
+    const eta = rate > 0 ? Math.round((this.total - done) / rate) : 0;
+    console.log(`    … ${this.label} ${fmt(done)}/${fmt(this.total)} (${fmt(rate)} rows/s, ETA ${eta}s)`);
+    this.next += PROGRESS_EVERY_ROWS;
   }
-  console.log(`  ✔ ${label.padEnd(12)} ${String(rows.length).padStart(6)} rows  (${formatDuration(startedAt)})`);
+}
+
+/** Runs `producer` chunk by chunk, keeping up to `concurrency` inserts in flight. */
+async function streamChunks(
+  total: number,
+  chunkSize: number,
+  produce: (offset: number, size: number) => Promise<unknown>
+): Promise<void> {
+  let offset = 0;
+  while (offset < total) {
+    const inFlight: Array<Promise<unknown>> = [];
+    for (let k = 0; k < seedConfig.concurrency && offset < total; k += 1) {
+      const size = Math.min(chunkSize, total - offset);
+      inFlight.push(produce(offset, size));
+      offset += size;
+    }
+    await Promise.all(inFlight);
+  }
 }
 
 // ---------------------------------------------------------------------------
-// Generators
+// Categories
 // ---------------------------------------------------------------------------
 
-type CategoryRow = Prisma.CategoryCreateManyInput & { id: string };
-type ProductRow = Prisma.ProductCreateManyInput & { id: string; price: string };
-type UserRow = Prisma.UserCreateManyInput & { id: string };
-type AddressRow = Prisma.AddressCreateManyInput & { id: string; userId: string };
-type CartRow = Prisma.CartCreateManyInput & { id: string };
-type CartItemRow = Prisma.CartItemCreateManyInput;
-type OrderRow = Prisma.OrderCreateManyInput & { id: string };
-type OrderItemRow = Prisma.OrderItemCreateManyInput;
+interface CategoryRow {
+  id: string;
+  template: CategoryTemplate;
+}
 
-function buildCategories(): CategoryRow[] {
-  return CATEGORY_TEMPLATES.map(template => ({
-    id: randomUUID(),
-    name: template.name,
-    slug: template.slug,
-    description: template.description,
-    active: true,
-  }));
+async function seedCategories(): Promise<CategoryRow[]> {
+  const startedAt = Date.now();
+  const rows = CATEGORY_TEMPLATES.map(template => ({ id: randomUUID(), template }));
+
+  await prisma.category.createMany({
+    data: rows.map(({ id, template }) => ({
+      id,
+      name: template.name,
+      slug: template.slug,
+      description: template.description,
+      active: true,
+    })),
+  });
+
+  logRow('categories', rows.length, startedAt);
+  return rows;
+}
+
+// ---------------------------------------------------------------------------
+// Products (streamed)
+// ---------------------------------------------------------------------------
+
+/** Compact reference kept in memory for carts/orders. */
+interface ProductRef {
+  id: string;
+  name: string;
+  price: number;
+  stock: number;
 }
 
 function buildProductName(baseName: string): string {
-  const brand = faker.helpers.arrayElement(BRANDS);
-  const modifier = faker.helpers.maybe(() => faker.helpers.arrayElement(PRODUCT_MODIFIERS), { probability: 0.6 });
-  const series = `${faker.string.alpha({ length: 1, casing: 'upper' })}${faker.number.int({ min: 10, max: 999 })}`;
-
-  return [baseName, brand, modifier, series].filter(Boolean).join(' ');
+  const modifier = rng() < 0.6 ? ` ${pick(PRODUCT_MODIFIERS)}` : '';
+  const series = `${String.fromCharCode(65 + randomInt(0, 25))}${randomInt(10, 999)}`;
+  return `${baseName} ${pick(BRANDS)}${modifier} ${series}`;
 }
 
 function buildProductDescription(name: string): string {
-  const [featureA, featureB] = faker.helpers.arrayElements(FEATURES, 2);
-  const useCase = faker.helpers.arrayElement(USE_CASES);
-  const warranty = faker.helpers.arrayElement(WARRANTIES);
-
-  return `${name} combina ${featureA} e ${featureB}. Ideal para ${useCase}. ${warranty}`;
+  const featureA = pick(FEATURES);
+  let featureB = pick(FEATURES);
+  while (featureB === featureA) {
+    featureB = pick(FEATURES);
+  }
+  return `${name} combina ${featureA} e ${featureB}. Ideal para ${pick(USE_CASES)}. ${pick(WARRANTIES)}`;
 }
 
-function buildProducts(categories: CategoryRow[]): ProductRow[] {
-  const templatesBySlug = new Map(CATEGORY_TEMPLATES.map(template => [template.slug, template]));
+async function seedProducts(categories: CategoryRow[]): Promise<ProductRef[]> {
+  const pool: ProductRef[] = [];
+  let sellableSeen = 0;
+  const total = seedConfig.products;
+  const progress = new Progress('products', total);
+  const startedAt = Date.now();
+  let inserted = 0;
 
-  return Array.from({ length: seedConfig.products }, () => {
-    const category = faker.helpers.arrayElement(categories);
-    const template = templatesBySlug.get(category.slug);
-    if (!template) {
-      throw new Error(`Missing template for category ${category.slug}`);
+  await streamChunks(total, seedConfig.productChunkSize, async (_offset, size) => {
+    const ids = new Array<string>(size);
+    const names = new Array<string>(size);
+    const descriptions = new Array<string>(size);
+    const prices = new Array<string>(size);
+    const stocks = new Array<number>(size);
+    const imageUrls = new Array<string>(size);
+    const categoryIds = new Array<string>(size);
+    const actives = new Array<boolean>(size);
+    const createdAts = new Array<string>(size);
+
+    for (let i = 0; i < size; i += 1) {
+      const category = pick(categories);
+      const base = pick(category.template.products);
+      const [minPrice, maxPrice] = base.price;
+
+      const id = randomUUID();
+      const name = buildProductName(base.name);
+      const price = Math.round((minPrice + rng() * (maxPrice - minPrice)) * 100) / 100;
+      const stock = rng() < seedConfig.outOfStockRatio ? 0 : randomInt(1, 250);
+      const active = rng() >= seedConfig.inactiveRatio;
+
+      ids[i] = id;
+      names[i] = name;
+      descriptions[i] = buildProductDescription(name);
+      prices[i] = money(price);
+      stocks[i] = stock;
+      imageUrls[i] = `https://picsum.photos/seed/${id}/600/600`;
+      categoryIds[i] = category.id;
+      actives[i] = active;
+      createdAts[i] = randomPastIso(730);
+
+      // Reservoir sampling: uniform sample of sellable products for carts/orders.
+      if (active && stock > 0) {
+        const ref: ProductRef = { id, name, price, stock };
+        if (pool.length < seedConfig.productPoolSize) {
+          pool.push(ref);
+        } else {
+          const j = Math.floor(rng() * (sellableSeen + 1));
+          if (j < seedConfig.productPoolSize) {
+            pool[j] = ref;
+          }
+        }
+        sellableSeen += 1;
+      }
     }
 
-    const base = faker.helpers.arrayElement(template.products);
-    const name = buildProductName(base.name);
-    const [minPrice, maxPrice] = base.price;
-    const price = faker.commerce.price({ min: minPrice, max: maxPrice, dec: 2 });
-    const outOfStock = faker.number.float() < seedConfig.outOfStockRatio;
-    const inactive = faker.number.float() < seedConfig.inactiveRatio;
-    const createdAt = pastDate(730);
-    const id = randomUUID();
+    await prisma.$executeRaw`
+      INSERT INTO products
+        (id, name, description, price, stock, "imageUrl", "categoryId", active, "createdAt", "updatedAt")
+      SELECT * FROM unnest(
+        ${ids}::uuid[], ${names}::text[], ${descriptions}::text[], ${prices}::text[]::numeric[],
+        ${stocks}::int[], ${imageUrls}::text[], ${categoryIds}::uuid[], ${actives}::boolean[],
+        ${createdAts}::timestamptz[], ${createdAts}::timestamptz[]
+      )`;
 
-    return {
-      id,
-      name,
-      description: buildProductDescription(name),
-      price,
-      stock: outOfStock ? 0 : faker.number.int({ min: 1, max: 250 }),
-      // Deterministic placeholder photo per product until real media exists.
-      imageUrl: `https://picsum.photos/seed/${id}/600/600`,
-      categoryId: category.id,
-      active: !inactive,
-      createdAt,
-      updatedAt: createdAt,
-    };
+    inserted += size;
+    progress.report(inserted);
   });
+
+  logRow('products', inserted, startedAt);
+  return pool;
 }
 
-async function buildUsers(): Promise<UserRow[]> {
+// ---------------------------------------------------------------------------
+// Users + addresses + carts + orders (streamed together, per user chunk)
+// ---------------------------------------------------------------------------
+
+interface ColumnBuffers {
+  [column: string]: Array<string | number | boolean>;
+}
+
+function buffers(...columns: string[]): ColumnBuffers {
+  const result: ColumnBuffers = {};
+  for (const column of columns) {
+    result[column] = [];
+  }
+  return result;
+}
+
+function col<T extends string | number | boolean>(b: ColumnBuffers, name: string): T[] {
+  return b[name] as T[];
+}
+
+interface Totals {
+  users: number;
+  addresses: number;
+  carts: number;
+  cartItems: number;
+  orders: number;
+  orderItems: number;
+}
+
+async function seedUsersAndActivity(pool: ProductRef[]): Promise<Totals> {
   const [adminHash, demoHash, sharedHash] = await Promise.all([
     hash(KNOWN_ACCOUNTS.admin.password, PASSWORD_SALT_ROUNDS),
     hash(KNOWN_ACCOUNTS.customer.password, PASSWORD_SALT_ROUNDS),
     hash(KNOWN_ACCOUNTS.generatedCustomerPassword, PASSWORD_SALT_ROUNDS),
   ]);
 
-  const users: UserRow[] = [
-    { id: randomUUID(), name: KNOWN_ACCOUNTS.admin.name, email: KNOWN_ACCOUNTS.admin.email, password: adminHash, role: 'ADMIN' },
-    { id: randomUUID(), name: KNOWN_ACCOUNTS.customer.name, email: KNOWN_ACCOUNTS.customer.email, password: demoHash, role: 'CUSTOMER' },
-  ];
+  const totalUsers = seedConfig.users + 2; // + admin + demo customer
+  const ordersPerUser = seedConfig.orders / Math.max(1, seedConfig.users);
+  const totals: Totals = { users: 0, addresses: 0, carts: 0, cartItems: 0, orders: 0, orderItems: 0 };
+  const progress = new Progress('users', totalUsers);
+  const startedAt = Date.now();
 
-  const usedEmails = new Set(users.map(user => user.email));
+  await streamChunks(totalUsers, seedConfig.userChunkSize, async (offset, size) => {
+    const u = buffers('id', 'name', 'email', 'password', 'role', 'createdAt');
+    const a = buffers(
+      'id', 'userId', 'label', 'recipient', 'zipCode', 'street', 'number', 'complement',
+      'neighborhood', 'city', 'state', 'isDefault', 'createdAt'
+    );
+    const c = buffers('id', 'userId', 'createdAt');
+    const ci = buffers('id', 'cartId', 'productId', 'quantity', 'createdAt');
+    const o = buffers('id', 'userId', 'addressId', 'status', 'subtotal', 'shipping', 'total', 'createdAt');
+    const oi = buffers('id', 'orderId', 'productId', 'productName', 'unitPrice', 'quantity', 'subtotal', 'createdAt');
 
-  for (let i = 0; i < seedConfig.users; i += 1) {
-    const firstName = faker.person.firstName();
-    const lastName = faker.person.lastName();
-    let email = faker.internet.email({ firstName, lastName }).toLowerCase();
-    while (usedEmails.has(email)) {
-      email = faker.internet.email({ firstName, lastName, provider: `${faker.string.alphanumeric(4)}.dev` }).toLowerCase();
-    }
-    usedEmails.add(email);
+    for (let i = 0; i < size; i += 1) {
+      const index = offset + i;
+      const userId = randomUUID();
+      const userCreatedAt = randomPastIso(540);
 
-    const createdAt = pastDate(540);
-    users.push({
-      id: randomUUID(),
-      name: `${firstName} ${lastName}`,
-      email,
-      password: sharedHash,
-      role: 'CUSTOMER',
-      createdAt,
-      updatedAt: createdAt,
-    });
-  }
+      let name: string;
+      let email: string;
+      let password: string;
+      let role: 'ADMIN' | 'CUSTOMER' = 'CUSTOMER';
 
-  return users;
-}
+      if (index === 0) {
+        ({ name, email } = KNOWN_ACCOUNTS.admin);
+        password = adminHash;
+        role = 'ADMIN';
+      } else if (index === 1) {
+        ({ name, email } = KNOWN_ACCOUNTS.customer);
+        password = demoHash;
+      } else {
+        const first = pick(FIRST_NAMES);
+        const last = pick(LAST_NAMES);
+        name = `${first} ${last}`;
+        // The global index guarantees uniqueness without a lookup table.
+        email = `${stripAccents(first).toLowerCase()}.${stripAccents(last).toLowerCase()}${index}@${pick(EMAIL_DOMAINS)}`;
+        password = sharedHash;
+      }
 
-function buildAddresses(users: UserRow[]): AddressRow[] {
-  const addresses: AddressRow[] = [];
+      col(u, 'id').push(userId);
+      col(u, 'name').push(name);
+      col(u, 'email').push(email);
+      col(u, 'password').push(password);
+      col(u, 'role').push(role);
+      col(u, 'createdAt').push(userCreatedAt);
 
-  for (const user of users) {
-    const count = faker.number.int({ min: 1, max: 3 });
-    for (let i = 0; i < count; i += 1) {
-      addresses.push({
-        id: randomUUID(),
-        userId: user.id,
-        label: faker.helpers.arrayElement(ADDRESS_LABELS),
-        recipient: user.name,
-        zipCode: faker.location.zipCode('#####-###'),
-        street: faker.location.street(),
-        number: faker.location.buildingNumber(),
-        complement: faker.helpers.maybe(() => faker.location.secondaryAddress(), { probability: 0.4 }) ?? null,
-        neighborhood: faker.helpers.arrayElement(NEIGHBORHOODS),
-        city: faker.location.city(),
-        state: faker.location.state({ abbreviated: true }),
-        country: 'BR',
-        isDefault: i === 0,
-        active: true,
-      });
-    }
-  }
+      // Addresses: 1..3, the first is the default.
+      const addressIds: string[] = [];
+      const addressCount = randomInt(1, 3);
+      for (let k = 0; k < addressCount; k += 1) {
+        const addressId = randomUUID();
+        const city = pick(CITIES);
+        addressIds.push(addressId);
 
-  return addresses;
-}
+        col(a, 'id').push(addressId);
+        col(a, 'userId').push(userId);
+        col(a, 'label').push(pick(ADDRESS_LABELS));
+        col(a, 'recipient').push(name);
+        col(a, 'zipCode').push(`${city.cepPrefix}${randomInt(10, 99)}-${String(randomInt(0, 999)).padStart(3, '0')}`);
+        col(a, 'street').push(`${pick(STREET_TYPES)} ${pick(STREET_NAMES)}`);
+        col(a, 'number').push(String(randomInt(1, 4999)));
+        col(a, 'complement').push(rng() < 0.4 ? pick(ADDRESS_COMPLEMENTS) : '');
+        col(a, 'neighborhood').push(pick(NEIGHBORHOODS));
+        col(a, 'city').push(city.city);
+        col(a, 'state').push(city.state);
+        col(a, 'isDefault').push(k === 0);
+        col(a, 'createdAt').push(userCreatedAt);
+      }
 
-function buildCarts(customers: UserRow[], products: ProductRow[]): { carts: CartRow[]; items: CartItemRow[] } {
-  const carts: CartRow[] = [];
-  const items: CartItemRow[] = [];
-  const sellable = products.filter(product => product.active && (product.stock ?? 0) > 0);
+      if (role === 'ADMIN') {
+        continue;
+      }
 
-  for (const user of customers) {
-    if (faker.number.float() >= seedConfig.cartRatio) {
-      continue;
-    }
+      // Cart for a fraction of customers.
+      if (rng() < seedConfig.cartRatio) {
+        const cartId = randomUUID();
+        col(c, 'id').push(cartId);
+        col(c, 'userId').push(userId);
+        col(c, 'createdAt').push(userCreatedAt);
 
-    const cart: CartRow = { id: randomUUID(), userId: user.id };
-    carts.push(cart);
+        for (const product of sampleDistinct(pool, 1, 5)) {
+          col(ci, 'id').push(randomUUID());
+          col(ci, 'cartId').push(cartId);
+          col(ci, 'productId').push(product.id);
+          col(ci, 'quantity').push(randomInt(1, Math.min(3, product.stock)));
+          col(ci, 'createdAt').push(userCreatedAt);
+        }
+      }
 
-    for (const product of sampleDistinct(sellable, 1, 5)) {
-      items.push({
-        cartId: cart.id,
-        productId: product.id,
-        quantity: faker.number.int({ min: 1, max: Math.min(3, product.stock ?? 1) }),
-      });
-    }
-  }
+      // Orders: Poisson-ish count around ordersPerUser, so the total matches.
+      let orderCount = Math.floor(ordersPerUser);
+      if (rng() < ordersPerUser - orderCount) {
+        orderCount += 1;
+      }
 
-  return { carts, items };
-}
+      for (let k = 0; k < orderCount; k += 1) {
+        const orderId = randomUUID();
+        const orderCreatedAt = randomPastIso(365);
+        let subtotal = 0;
 
-function pickOrderStatus(): OrderStatus {
-  return faker.helpers.weightedArrayElement<OrderStatus>([
-    { value: 'FINISHED', weight: 55 },
-    { value: 'PROCESSING', weight: 15 },
-    { value: 'PENDING', weight: 15 },
-    { value: 'CANCELED', weight: 15 },
-  ]);
-}
+        for (const product of sampleDistinct(pool, 1, 5)) {
+          const quantity = randomInt(1, 3);
+          const lineSubtotal = product.price * quantity;
+          subtotal += lineSubtotal;
 
-function buildOrders(
-  customers: UserRow[],
-  addresses: AddressRow[],
-  products: ProductRow[]
-): { orders: OrderRow[]; items: OrderItemRow[] } {
-  const orders: OrderRow[] = [];
-  const items: OrderItemRow[] = [];
+          col(oi, 'id').push(randomUUID());
+          col(oi, 'orderId').push(orderId);
+          col(oi, 'productId').push(product.id);
+          col(oi, 'productName').push(product.name);
+          col(oi, 'unitPrice').push(money(product.price));
+          col(oi, 'quantity').push(quantity);
+          col(oi, 'subtotal').push(money(lineSubtotal));
+          col(oi, 'createdAt').push(orderCreatedAt);
+        }
 
-  const addressesByUser = new Map<string, AddressRow[]>();
-  for (const address of addresses) {
-    const list = addressesByUser.get(address.userId) ?? [];
-    list.push(address);
-    addressesByUser.set(address.userId, list);
-  }
+        const shipping = subtotal >= FREE_SHIPPING_THRESHOLD ? '0.00' : pick(SHIPPING_OPTIONS);
 
-  for (let i = 0; i < seedConfig.orders; i += 1) {
-    const user = faker.helpers.arrayElement(customers);
-    const userAddresses = addressesByUser.get(user.id);
-    if (!userAddresses || userAddresses.length === 0) {
-      continue;
-    }
-
-    const orderId = randomUUID();
-    const createdAt = pastDate(365);
-    let subtotal = 0;
-
-    for (const product of sampleDistinct(products, 1, 5)) {
-      const quantity = faker.number.int({ min: 1, max: 3 });
-      const unitPrice = Number(product.price);
-      const lineSubtotal = unitPrice * quantity;
-      subtotal += lineSubtotal;
-
-      items.push({
-        orderId,
-        productId: product.id,
-        productName: product.name,
-        unitPrice: money(unitPrice),
-        quantity,
-        subtotal: money(lineSubtotal),
-        createdAt,
-        updatedAt: createdAt,
-      });
+        col(o, 'id').push(orderId);
+        col(o, 'userId').push(userId);
+        col(o, 'addressId').push(pick(addressIds));
+        col(o, 'status').push(pickOrderStatus());
+        col(o, 'subtotal').push(money(subtotal));
+        col(o, 'shipping').push(shipping);
+        col(o, 'total').push(money(subtotal + Number(shipping)));
+        col(o, 'createdAt').push(orderCreatedAt);
+      }
     }
 
-    const shipping = subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : faker.helpers.arrayElement(SHIPPING_OPTIONS);
+    // Parents first (users, addresses), then children. Each is one statement.
+    await prisma.$executeRaw`
+      INSERT INTO users (id, name, email, password, role, "createdAt", "updatedAt")
+      SELECT * FROM unnest(
+        ${u.id}::uuid[], ${u.name}::text[], ${u.email}::text[], ${u.password}::text[],
+        ${u.role}::text[]::"Role"[], ${u.createdAt}::timestamptz[], ${u.createdAt}::timestamptz[]
+      )`;
 
-    orders.push({
-      id: orderId,
-      userId: user.id,
-      addressId: faker.helpers.arrayElement(userAddresses).id,
-      status: pickOrderStatus(),
-      subtotal: money(subtotal),
-      shipping: money(shipping),
-      total: money(subtotal + shipping),
-      createdAt,
-      updatedAt: createdAt,
-    });
-  }
+    await prisma.$executeRaw`
+      INSERT INTO addresses
+        (id, "userId", label, recipient, "zipCode", street, number, complement, neighborhood,
+         city, state, country, "isDefault", active, "createdAt", "updatedAt")
+      SELECT id, "userId", label, recipient, "zipCode", street, number, NULLIF(complement, ''), neighborhood,
+             city, state, 'BR', "isDefault", true, "createdAt", "createdAt"
+      FROM unnest(
+        ${a.id}::uuid[], ${a.userId}::uuid[], ${a.label}::text[], ${a.recipient}::text[],
+        ${a.zipCode}::text[], ${a.street}::text[], ${a.number}::text[], ${a.complement}::text[],
+        ${a.neighborhood}::text[], ${a.city}::text[], ${a.state}::text[], ${a.isDefault}::boolean[],
+        ${a.createdAt}::timestamptz[]
+      ) AS t(id, "userId", label, recipient, "zipCode", street, number, complement, neighborhood,
+             city, state, "isDefault", "createdAt")`;
 
-  return { orders, items };
+    await Promise.all([
+      prisma.$executeRaw`
+        INSERT INTO carts (id, "userId", "createdAt", "updatedAt")
+        SELECT * FROM unnest(
+          ${c.id}::uuid[], ${c.userId}::uuid[], ${c.createdAt}::timestamptz[], ${c.createdAt}::timestamptz[]
+        )`,
+      prisma.$executeRaw`
+        INSERT INTO orders (id, "userId", "addressId", status, subtotal, shipping, total, "createdAt", "updatedAt")
+        SELECT * FROM unnest(
+          ${o.id}::uuid[], ${o.userId}::uuid[], ${o.addressId}::uuid[], ${o.status}::text[]::"OrderStatus"[],
+          ${o.subtotal}::text[]::numeric[], ${o.shipping}::text[]::numeric[], ${o.total}::text[]::numeric[],
+          ${o.createdAt}::timestamptz[], ${o.createdAt}::timestamptz[]
+        )`,
+    ]);
+
+    await Promise.all([
+      prisma.$executeRaw`
+        INSERT INTO cart_items (id, "cartId", "productId", quantity, "createdAt", "updatedAt")
+        SELECT * FROM unnest(
+          ${ci.id}::uuid[], ${ci.cartId}::uuid[], ${ci.productId}::uuid[], ${ci.quantity}::int[],
+          ${ci.createdAt}::timestamptz[], ${ci.createdAt}::timestamptz[]
+        )`,
+      prisma.$executeRaw`
+        INSERT INTO order_items
+          (id, "orderId", "productId", "productName", "unitPrice", quantity, subtotal, "createdAt", "updatedAt")
+        SELECT * FROM unnest(
+          ${oi.id}::uuid[], ${oi.orderId}::uuid[], ${oi.productId}::uuid[], ${oi.productName}::text[],
+          ${oi.unitPrice}::text[]::numeric[], ${oi.quantity}::int[], ${oi.subtotal}::text[]::numeric[],
+          ${oi.createdAt}::timestamptz[], ${oi.createdAt}::timestamptz[]
+        )`,
+    ]);
+
+    totals.users += u.id.length;
+    totals.addresses += a.id.length;
+    totals.carts += c.id.length;
+    totals.cartItems += ci.id.length;
+    totals.orders += o.id.length;
+    totals.orderItems += oi.id.length;
+    progress.report(totals.users);
+  });
+
+  logRow('users', totals.users, startedAt);
+  logRow('addresses', totals.addresses, startedAt);
+  logRow('carts', totals.carts, startedAt);
+  logRow('cart_items', totals.cartItems, startedAt);
+  logRow('orders', totals.orders, startedAt);
+  logRow('order_items', totals.orderItems, startedAt);
+  return totals;
 }
 
 // ---------------------------------------------------------------------------
@@ -326,54 +538,41 @@ function buildOrders(
 // ---------------------------------------------------------------------------
 
 async function cleanDatabase(): Promise<void> {
-  // Children first to respect foreign keys.
-  await prisma.orderItem.deleteMany();
-  await prisma.order.deleteMany();
-  await prisma.cartItem.deleteMany();
-  await prisma.cart.deleteMany();
-  await prisma.address.deleteMany();
-  await prisma.product.deleteMany();
-  await prisma.category.deleteMany();
-  await prisma.user.deleteMany();
+  // TRUNCATE is O(1) regardless of row count; DELETE on millions of rows is not.
+  await prisma.$executeRawUnsafe(
+    'TRUNCATE TABLE order_items, orders, cart_items, carts, addresses, products, categories, users RESTART IDENTITY CASCADE'
+  );
 }
 
 async function main(): Promise<void> {
   const startedAt = Date.now();
-  faker.seed(seedConfig.randomSeed);
 
   console.log('🌱 Seeding database');
   console.log(
-    `   products=${seedConfig.products} users=${seedConfig.users} orders=${seedConfig.orders} randomSeed=${seedConfig.randomSeed}\n`
+    `   products=${fmt(seedConfig.products)} users=${fmt(seedConfig.users)} orders=${fmt(seedConfig.orders)} ` +
+      `randomSeed=${seedConfig.randomSeed} chunk=${fmt(seedConfig.productChunkSize)}/${fmt(seedConfig.userChunkSize)} ` +
+      `concurrency=${seedConfig.concurrency}\n`
   );
 
-  console.log('🗑️  Cleaning existing data...');
+  console.log('🗑️  Truncating tables...');
   await cleanDatabase();
 
-  console.log('🧬 Generating data...');
-  const categories = buildCategories();
-  const products = buildProducts(categories);
-  const users = await buildUsers();
-  const customers = users.filter(user => user.role === 'CUSTOMER');
-  const addresses = buildAddresses(users);
-  const { carts, items: cartItems } = buildCarts(customers, products);
-  const { orders, items: orderItems } = buildOrders(customers, addresses, products);
-
   console.log('💾 Inserting...');
-  await insertInBatches('categories', categories, data => prisma.category.createMany({ data }));
-  await insertInBatches('products', products, data => prisma.product.createMany({ data }));
-  await insertInBatches('users', users, data => prisma.user.createMany({ data }));
-  await insertInBatches('addresses', addresses, data => prisma.address.createMany({ data }));
-  await insertInBatches('carts', carts, data => prisma.cart.createMany({ data }));
-  await insertInBatches('cart_items', cartItems, data => prisma.cartItem.createMany({ data }));
-  await insertInBatches('orders', orders, data => prisma.order.createMany({ data }));
-  await insertInBatches('order_items', orderItems, data => prisma.orderItem.createMany({ data }));
+  const categories = await seedCategories();
+
+  const pool = await seedProducts(categories);
+  if (pool.length === 0) {
+    throw new Error('No sellable products generated; cannot build carts and orders');
+  }
+
+  const totals = await seedUsersAndActivity(pool);
 
   console.log(`\n✅ Done in ${formatDuration(startedAt)}`);
   console.log(`
 🔑 Accounts
    admin     ${KNOWN_ACCOUNTS.admin.email} / ${KNOWN_ACCOUNTS.admin.password}
    customer  ${KNOWN_ACCOUNTS.customer.email} / ${KNOWN_ACCOUNTS.customer.password}
-   generated ${customers.length - 1} customers, password ${KNOWN_ACCOUNTS.generatedCustomerPassword}
+   generated ${fmt(totals.users - 2)} customers, password ${KNOWN_ACCOUNTS.generatedCustomerPassword}
 `);
 }
 

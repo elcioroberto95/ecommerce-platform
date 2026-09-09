@@ -4,10 +4,10 @@
  * Every volume is overridable through environment variables so the same script
  * serves a quick local run and a heavy load-test dataset:
  *
- *   SEED_PRODUCTS=50000 SEED_USERS=10000 SEED_ORDERS=40000 node dist/database/seed.js
+ *   SEED_PRODUCTS=50000 SEED_USERS=1000 SEED_ORDERS=5000 node dist/database/seed.js
  *
- * SEED_RANDOM_SEED keeps faker deterministic: the same value always produces
- * the same dataset, which makes bugs reproducible.
+ * SEED_RANDOM_SEED keeps generation deterministic: the same value always
+ * produces the same dataset, which makes bugs reproducible.
  */
 
 function readInt(name: string, fallback: number): number {
@@ -35,19 +35,36 @@ export interface SeedConfig {
   outOfStockRatio: number;
   /** Fraction of products created as active = false. */
   inactiveRatio: number;
-  /** Rows per createMany call. */
-  batchSize: number;
+  /**
+   * Everything is streamed: each chunk is generated, inserted with a single
+   * `INSERT ... SELECT FROM unnest()` statement per table and released, so
+   * memory stays flat regardless of the volumes above.
+   */
+  productChunkSize: number;
+  /** Users per chunk. Their addresses, carts and orders are built in the same pass. */
+  userChunkSize: number;
+  /** Chunks inserted concurrently (bounded by the Prisma/pg connection pool). */
+  concurrency: number;
+  /**
+   * Carts and orders reference products. Instead of keeping every product in
+   * memory we keep a uniform random sample (reservoir sampling) of sellable
+   * products of this size.
+   */
+  productPoolSize: number;
 }
 
 export const seedConfig: SeedConfig = {
   randomSeed: readInt('SEED_RANDOM_SEED', 42),
-  products: readInt('SEED_PRODUCTS', 10000),
-  users: readInt('SEED_USERS', 2000),
-  orders: readInt('SEED_ORDERS', 10000),
+  products: readInt('SEED_PRODUCTS', 5_000_000),
+  users: readInt('SEED_USERS', 5_000_000),
+  orders: readInt('SEED_ORDERS', 5_000_000),
   cartRatio: 0.3,
   outOfStockRatio: 0.08,
   inactiveRatio: 0.05,
-  batchSize: 500,
+  productChunkSize: readInt('SEED_PRODUCT_CHUNK', 20_000),
+  userChunkSize: readInt('SEED_USER_CHUNK', 10_000),
+  concurrency: readInt('SEED_CONCURRENCY', 3),
+  productPoolSize: 100_000,
 };
 
 /** Known accounts, printed at the end of the seed so they can be used in the UI. */

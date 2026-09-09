@@ -270,3 +270,82 @@ export const NEIGHBORHOODS = [
   'Asa Sul',
   'Barra da Tijuca',
 ];
+
+// ---------------------------------------------------------------------------
+// People and places. Used instead of faker for the multi-million user pass:
+// faker costs tens of microseconds per call, a list lookup costs nanoseconds.
+// ---------------------------------------------------------------------------
+
+export const FIRST_NAMES = [
+  'Ana', 'Beatriz', 'Bruno', 'Camila', 'Carlos', 'Carolina', 'Daniel', 'Diego', 'Eduardo', 'Elisa',
+  'Fábio', 'Felipe', 'Fernanda', 'Gabriel', 'Gabriela', 'Guilherme', 'Gustavo', 'Helena', 'Henrique', 'Isabela',
+  'João', 'Júlia', 'Juliana', 'Larissa', 'Laura', 'Leonardo', 'Letícia', 'Lucas', 'Luiza', 'Manuela',
+  'Marcelo', 'Marcos', 'Maria', 'Mariana', 'Mateus', 'Matheus', 'Miguel', 'Natália', 'Nicolas', 'Otávio',
+  'Patrícia', 'Paulo', 'Pedro', 'Rafael', 'Rafaela', 'Renata', 'Ricardo', 'Roberto', 'Rodrigo', 'Sabrina',
+  'Samuel', 'Sofia', 'Thiago', 'Valentina', 'Vinícius', 'Vitor', 'Vitória', 'Yasmin', 'Alice', 'André',
+  'Arthur', 'Bernardo', 'Bianca', 'Caio', 'Clara', 'Davi', 'Débora', 'Enzo', 'Érica', 'Heitor',
+  'Igor', 'Isadora', 'Lorenzo', 'Luana', 'Murilo', 'Priscila', 'Raul', 'Tatiane', 'Theo', 'Vanessa',
+];
+
+export const LAST_NAMES = [
+  'Silva', 'Santos', 'Oliveira', 'Souza', 'Rodrigues', 'Ferreira', 'Alves', 'Pereira', 'Lima', 'Gomes',
+  'Costa', 'Ribeiro', 'Martins', 'Carvalho', 'Almeida', 'Lopes', 'Soares', 'Fernandes', 'Vieira', 'Barbosa',
+  'Rocha', 'Dias', 'Nascimento', 'Andrade', 'Moreira', 'Nunes', 'Marques', 'Machado', 'Mendes', 'Freitas',
+  'Cardoso', 'Ramos', 'Gonçalves', 'Santana', 'Teixeira', 'Araújo', 'Correia', 'Cavalcanti', 'Monteiro', 'Moura',
+  'Batista', 'Campos', 'Pinto', 'Castro', 'Duarte', 'Melo', 'Reis', 'Azevedo', 'Barros', 'Cunha',
+  'Farias', 'Guimarães', 'Leite', 'Macedo', 'Medeiros', 'Miranda', 'Nogueira', 'Peixoto', 'Rezende', 'Sales',
+];
+
+export const EMAIL_DOMAINS = ['gmail.com', 'hotmail.com', 'outlook.com', 'yahoo.com.br', 'uol.com.br', 'bol.com.br', 'icloud.com'];
+
+export const STREET_TYPES = ['Rua', 'Avenida', 'Travessa', 'Alameda', 'Praça', 'Estrada'];
+
+export const STREET_NAMES = [
+  'das Flores', 'XV de Novembro', 'Sete de Setembro', 'Getúlio Vargas', 'Tiradentes', 'Dom Pedro II',
+  'Marechal Deodoro', 'Santos Dumont', 'São João', 'Santa Luzia', 'Rio Branco', 'Paulista', 'Brasil',
+  'da Independência', 'das Palmeiras', 'dos Andradas', 'Barão de Mauá', 'Duque de Caxias', 'José Bonifácio',
+  'Coronel Fabriciano', 'das Acácias', 'Padre Anchieta', 'Presidente Vargas', 'Castro Alves', 'Machado de Assis',
+  'Rui Barbosa', 'Nossa Senhora de Fátima', 'Amazonas', 'Bahia', 'Goiás', 'Minas Gerais', 'Paraná',
+];
+
+export interface CityTemplate {
+  city: string;
+  state: string;
+  /** First three digits of the CEP, so zip codes look plausible for the city. */
+  cepPrefix: string;
+}
+
+export const CITIES: CityTemplate[] = [
+  { city: 'São Paulo', state: 'SP', cepPrefix: '010' },
+  { city: 'Campinas', state: 'SP', cepPrefix: '130' },
+  { city: 'Santos', state: 'SP', cepPrefix: '110' },
+  { city: 'Rio de Janeiro', state: 'RJ', cepPrefix: '200' },
+  { city: 'Niterói', state: 'RJ', cepPrefix: '240' },
+  { city: 'Belo Horizonte', state: 'MG', cepPrefix: '300' },
+  { city: 'Uberlândia', state: 'MG', cepPrefix: '384' },
+  { city: 'Curitiba', state: 'PR', cepPrefix: '800' },
+  { city: 'Londrina', state: 'PR', cepPrefix: '860' },
+  { city: 'Porto Alegre', state: 'RS', cepPrefix: '900' },
+  { city: 'Caxias do Sul', state: 'RS', cepPrefix: '950' },
+  { city: 'Florianópolis', state: 'SC', cepPrefix: '880' },
+  { city: 'Joinville', state: 'SC', cepPrefix: '892' },
+  { city: 'Salvador', state: 'BA', cepPrefix: '400' },
+  { city: 'Recife', state: 'PE', cepPrefix: '500' },
+  { city: 'Fortaleza', state: 'CE', cepPrefix: '600' },
+  { city: 'Natal', state: 'RN', cepPrefix: '590' },
+  { city: 'João Pessoa', state: 'PB', cepPrefix: '580' },
+  { city: 'Maceió', state: 'AL', cepPrefix: '570' },
+  { city: 'Aracaju', state: 'SE', cepPrefix: '490' },
+  { city: 'Teresina', state: 'PI', cepPrefix: '640' },
+  { city: 'São Luís', state: 'MA', cepPrefix: '650' },
+  { city: 'Belém', state: 'PA', cepPrefix: '660' },
+  { city: 'Manaus', state: 'AM', cepPrefix: '690' },
+  { city: 'Brasília', state: 'DF', cepPrefix: '700' },
+  { city: 'Goiânia', state: 'GO', cepPrefix: '740' },
+  { city: 'Cuiabá', state: 'MT', cepPrefix: '780' },
+  { city: 'Campo Grande', state: 'MS', cepPrefix: '790' },
+  { city: 'Vitória', state: 'ES', cepPrefix: '290' },
+  { city: 'Palmas', state: 'TO', cepPrefix: '770' },
+];
+
+export const ADDRESS_COMPLEMENTS = ['Apto 101', 'Apto 302', 'Bloco B', 'Casa 2', 'Fundos', 'Sala 12', 'Cobertura'];
