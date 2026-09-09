@@ -1,6 +1,6 @@
 # 📊 Project Status - E-commerce Platform
 
-**Last Updated**: 2026-09-02  
+**Last Updated**: 2026-09-09  
 **Status**: In Progress  
 **Overall Completion**: 16% (2/12 days done)
 
@@ -58,7 +58,23 @@
 
 ## ⏳ In Progress
 
-None (ready for next page)
+### 🔧 API Contract Alignment (2026-09-09) - 40%
+Triggered by: login page looping in Docker. Root cause: frontend types/routes were invented, not read from the backend (RULE 5 violation). Cart page "COMPLETE" status is provisional until this stage closes.
+
+Done:
+- ✅ Frontend Dockerfile + compose service. **Everything runs in Docker now** (`docker compose up --build`)
+- ✅ Frontend added to pnpm workspace lockfile (npm package-lock removed)
+- ✅ zod aligned to v4 in frontend (same as backend)
+- ✅ API base URL `/api` → `/api/v1`
+- ✅ 401 interceptor no longer loops on /auth/login
+- ✅ CartProvider only fetches when authenticated
+- ✅ Login maps `{ accessToken, user }`; register = `POST /users` + login
+- ✅ Verified against backend container: create user 201, login 200, cart 200 with token, 401 without
+
+Remaining (see `.claude/workflow.yml` → `api_contract_alignment.remaining`):
+- Cart / Product / Products-list types and services still don't match backend responses
+- Home "Featured Products" grid empty; /products pages use hardcoded mocks
+- forgot-password endpoint doesn't exist in backend
 
 ---
 
@@ -192,6 +208,13 @@ Frontend (apps/frontend/)
 - ✅ Created BACKEND_API_VALIDATION.md
 - ✅ Identified 3 blockers (categories, filters, related products)
 
+### Day 3 (2026-09-09)
+- ✅ Frontend Dockerized; all 4 services up via compose
+- ✅ Found and fixed login redirect loop (401 interceptor + unconditional cart fetch)
+- ✅ Fixed auth response mapping and register flow
+- ⚠️ Discovered: frontend never actually talked to the backend (URL prefix + invented types)
+- 🔄 api_contract_alignment stage opened (40%)
+
 ### Day 2 (2026-09-02)
 - ✅ Implemented backend categories module
 - ✅ Added product filters (category, price, rating, sort)
@@ -234,5 +257,5 @@ Day 11-12: ⏳ Bug fixes + Testing + Optimization
 
 **Status**: ON TRACK ✅  
 **Morale**: 🚀 HIGH  
-**Blockers**: NONE  
-**Ready for**: Next page implementation
+**Blockers**: api_contract_alignment must close before new pages  
+**Ready for**: WORKFLOW DECISION on api_contract_alignment (continue) 

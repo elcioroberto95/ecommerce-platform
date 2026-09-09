@@ -1,10 +1,20 @@
 export type OrderStatus = 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled'
 
+// Matches Prisma enum Role
+export type UserRole = 'CUSTOMER' | 'ADMIN'
+
+// Matches backend POST /auth/login -> user
 export interface User {
   id: string
   name: string
   email: string
-  created_at: string
+  role: UserRole
+}
+
+// Matches backend POST /auth/login response
+export interface LoginResponse {
+  accessToken: string
+  user: User
 }
 
 export interface Product {

@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import apiClient from '@/lib/api-client'
-import { User, AuthContextType } from '@/types'
+import { User, AuthContextType, LoginResponse } from '@/types'
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
@@ -24,33 +24,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(false)
   }, [])
 
+  // Backend contract: POST /auth/login -> { accessToken, user }
+  const authenticate = async (email: string, password: string) => {
+    const response = await apiClient.post<LoginResponse>('/auth/login', { email, password })
+    const { accessToken, user: userData } = response.data
+
+    localStorage.setItem('auth_token', accessToken)
+    localStorage.setItem('user', JSON.stringify(userData))
+
+    setToken(accessToken)
+    setUser(userData)
+  }
+
   const login = async (email: string, password: string) => {
     try {
       setIsLoading(true)
-      const response = await apiClient.post('/auth/login', { email, password })
-      const { token: newToken, ...userData } = response.data
-
-      localStorage.setItem('auth_token', newToken)
-      localStorage.setItem('user', JSON.stringify(userData))
-
-      setToken(newToken)
-      setUser(userData)
+      await authenticate(email, password)
     } finally {
       setIsLoading(false)
     }
   }
 
+  // Backend has no /auth/register: create the user via POST /users, then log in.
   const register = async (name: string, email: string, password: string) => {
     try {
       setIsLoading(true)
-      const response = await apiClient.post('/auth/register', { name, email, password })
-      const { token: newToken, ...userData } = response.data
-
-      localStorage.setItem('auth_token', newToken)
-      localStorage.setItem('user', JSON.stringify(userData))
-
-      setToken(newToken)
-      setUser(userData)
+      await apiClient.post('/users', { name, email, password })
+      await authenticate(email, password)
     } finally {
       setIsLoading(false)
     }

@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useCallback, useEffect, useState } from 'react';
 import type { Cart, CartItem as CartItemType } from '@/types';
 import { apiClient } from '@/lib/api-client';
+import { useAuth } from '@/context/AuthContext';
 
 interface CartContextType {
   cart: Cart | null;
@@ -18,6 +19,7 @@ interface CartContextType {
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
   const [cart, setCart] = useState<Cart | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -37,9 +39,21 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // The cart endpoint requires authentication: only fetch once the auth state
+  // is known and the user is logged in. Anonymous visitors get an empty cart.
   useEffect(() => {
-    fetchCart();
-  }, [fetchCart]);
+    if (isAuthLoading) {
+      return;
+    }
+
+    if (isAuthenticated) {
+      fetchCart();
+    } else {
+      setCart(null);
+      setError(null);
+      setIsLoading(false);
+    }
+  }, [isAuthenticated, isAuthLoading, fetchCart]);
 
   const addItem = useCallback(
     async (productId: string, quantity: number) => {
