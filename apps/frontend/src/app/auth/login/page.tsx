@@ -14,7 +14,7 @@ export default function LoginPage() {
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const result = await onSubmit(e)
+    await onSubmit(e)
     if (!form.formState.errors.root?.message && !apiError) {
       router.push('/')
     }

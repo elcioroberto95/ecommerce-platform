@@ -11,7 +11,7 @@ interface OrderSummaryProps {
 const TAX_RATE = 0.05;
 const SHIPPING_COST = 10;
 
-export function OrderSummary({ cart, isLoading }: OrderSummaryProps) {
+export function OrderSummary({ cart }: OrderSummaryProps) {
   if (!cart || cart.items.length === 0) {
     return (
       <div className="rounded-lg border bg-gray-50 p-6">
