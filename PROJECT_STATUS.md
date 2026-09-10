@@ -49,6 +49,15 @@
   - Volumes via `SEED_PRODUCTS` / `SEED_USERS` / `SEED_ORDERS`; determinístico via `SEED_RANDOM_SEED`
   - Contas: `admin@ecommerce.dev` / `Admin123!` e `cliente@ecommerce.dev` / `Cliente123!`
 
+### Backend (Phase 0.5, 2026-09-09)
+- ✅ **Prisma Client removed, plain SQL with `pg`**
+  - `src/shared/database/pool.ts` (query, queryOne, execute, withTransaction, buildUpdate), `rows.ts` (typed tables)
+  - 6 repositories rewritten in SQL; order creation is an explicit transaction with a stock guard
+  - Prisma kept only as the migration tool (`prisma migrate deploy` in the container)
+- ✅ **API-wide pagination**: every list returns `{ items, meta }`, `limit` capped at 250
+- ✅ **Postgres tuned in compose**: shared_buffers 1GB, effective_cache_size 3GB, max_wal_size 4GB
+- ✅ Verified end to end (`verify-api.sh`) on 5M products / 750k users / 740k orders
+
 ### Frontend Pages
 - ✅ **Cart Page** (2026-09-02)
   - CartContext for state management
@@ -231,6 +240,8 @@ Frontend (apps/frontend/)
 - 🔄 api_contract_alignment stage opened (40%)
 - ✅ Faker seed: 10k products / 2k users / 10k orders, runs inside the container
 - ✅ Home, /products and /products/[id] on real data (imageUrl + category from backend)
+- ✅ Seed scaled to streaming unnest inserts; 5M products loaded, users/orders pass paused at 750k
+- ✅ Prisma Client replaced by plain SQL; pagination + 250-row cap on every list endpoint
 
 ### Day 2 (2026-09-02)
 - ✅ Implemented backend categories module

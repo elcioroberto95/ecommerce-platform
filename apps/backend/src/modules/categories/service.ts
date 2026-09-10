@@ -1,6 +1,7 @@
 import { ConflictError } from '../../core/errors/conflict-error';
 import { NotFoundError } from '../../core/errors/not-found-error';
 import { categoriesRepository } from './repository';
+import { buildPage, toOffset, type PaginationQuery } from '../../shared/schemas/pagination';
 import type { CreateCategoryInput, UpdateCategoryInput } from './schemas';
 
 export const categoriesService = {
@@ -14,8 +15,10 @@ export const categoriesService = {
 		return categoriesRepository.create(data);
 	},
 
-	async list() {
-		return categoriesRepository.findMany();
+	async list(pagination: PaginationQuery) {
+		const { items, total } = await categoriesRepository.findMany(toOffset(pagination), pagination.limit);
+
+		return buildPage(items, total, pagination);
 	},
 
 	async getById(id: string) {

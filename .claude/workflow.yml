@@ -126,12 +126,63 @@ workflows:
 
         run: "docker compose exec backend node dist/database/seed.js"
 
+        scale_5m_run_2026_09_09:
+          status: PARTIAL
+          products: "5,000,000 in 554s (9k rows/s)"
+          users_pass: "stopped by decision at 750,000 users / 1.5M addresses / 222k carts / 740k orders / 2.16M order items (4 GB)"
+          why_stopped: "users pass ran at ~700 users/s (~8 rows each): generation and inserts do not overlap, and PK/unique btrees + FK checks vs 5M products exceeded 128MB shared_buffers. Full run would take 2.5h more; the SQL migration rebuild needed the container."
+          next: "Overlap generation with inserts (pipeline), rerun with postgres shared_buffers=1GB (now in compose)"
+
         acceptance_criteria:
           - "Seed runs inside Docker without tsx"
           - "Default volume: 12 categories, 10000 products, 2002 users, ~4000 addresses, 10000 orders (~30k order items)"
           - "Deterministic (same SEED_RANDOM_SEED => same data)"
           - "Known accounts printed: admin@ecommerce.dev / cliente@ecommerce.dev"
           - "Products coherent with their category, pt-BR text"
+
+
+      # STAGE 0.7: SQL MIGRATION (user request: "migrar tudo que é prisma pra query pura")
+      sql_migration:
+        name: "Replace Prisma Client with plain SQL (pg) + API-wide pagination"
+        status: COMPLETE
+        completion: 100%
+        duration: "0.5 day"
+        assigned_agent: "backend-data-agent"
+        started_date: "2026-09-09"
+        completed_date: "2026-09-09"
+
+        decisions:
+          - "Keep prisma CLI + schema.prisma + prisma/migrations as the migration tool (prisma migrate dev/deploy)"
+          - "Runtime uses `pg` Pool directly: src/shared/database/pool.ts (query, queryOne, execute, withTransaction, buildUpdate, escapeLike)"
+          - "Row types written by hand in src/shared/database/rows.ts (one interface per table)"
+          - "Repositories keep method names and return shapes, so services/controllers barely changed"
+          - "id and updatedAt had no DB default (ORM filled them): INSERTs use gen_random_uuid()::text and now()"
+          - "NUMERIC stays string at the repository level; services already Number() it"
+          - "LIKE wildcards in search are escaped (escapeLike) - the ORM did this implicitly"
+          - "Every list endpoint returns { items, meta } and accepts page/limit; limit is capped at 250 (src/shared/schemas/pagination.ts)"
+
+        done:
+          - "pool.ts + rows.ts + schemas/pagination.ts"
+          - "users, categories, products, cart, addresses, orders repositories in SQL"
+          - "orders.createFromCart as an explicit transaction (stock guard UPDATE ... WHERE stock >= qty)"
+          - "Pagination on /categories, /products, /products/:id/related, /users/me/addresses, /orders, /admin/orders"
+          - "seed uses pg directly (execute with $n params)"
+          - "@prisma/client, @prisma/adapter-pg removed; src/generated deleted; Dockerfile no longer runs prisma generate"
+          - "Frontend: categories service reads the { items, meta } envelope"
+          - "docker-compose: postgres tuned (shared_buffers=1GB, effective_cache_size=3GB, max_wal_size=4GB, work_mem=32MB)"
+
+        verified:
+          - "verify-api.sh ALL CHECKS PASSED against the container (5M products, 750k users, 740k orders)"
+          - "categories paginated (12 total); limit=251 rejected on categories, products, related"
+          - "products filters/sort/search (LIKE escaping) OK; detail 200, invalid id 400, unknown 404"
+          - "users: create 201 (no password leaked), duplicate 409, login 200, wrong password 401, PATCH /users/me"
+          - "cart: add merges quantity, update, over-stock 400, remove, clear"
+          - "addresses: first is default, default reorders list, delete moves default to next"
+          - "orders: empty cart 400; create decrements stock 13->11 and empties cart; list/detail; admin page 3 of 740k; customer 403"
+
+        known_debt:
+          - "products.sort=rating and ratingMin are accepted but do nothing (no ratings in the domain)"
+          - "count(*) on every list is a full scan at millions of rows -> db_performance stage"
 
       # STAGE 1: SEARCH PAGE
       search_page:
@@ -536,6 +587,34 @@ decisions:
     priority: "HIGH"
     by: "User"
     comment: "Replace hardcoded seed with faker-based generator producing a large dataset."
+  - id: "dec_004"
+    date: "2026-09-09"
+    stage: "seed_data"
+    action: "SCALE"
+    priority: "HIGH"
+    by: "User"
+    comment: "5M products, 5M users, 5M orders. Seed rewritten as streaming unnest inserts; faker dropped for word lists + PRNG."
+  - id: "dec_005"
+    date: "2026-09-09"
+    stage: "sql_migration"
+    action: "START"
+    priority: "HIGH"
+    by: "User"
+    comment: "Remove Prisma Client from the runtime so the SQL is explicit and understandable. Keep Prisma only for migrations."
+  - id: "dec_006"
+    date: "2026-09-09"
+    stage: "sql_migration"
+    action: "RULE"
+    priority: "HIGH"
+    by: "User"
+    comment: "Every list endpoint must be paginated; no API may return more than 250 rows per request."
+  - id: "dec_007"
+    date: "2026-09-09"
+    stage: "seed_data"
+    action: "PAUSE"
+    priority: "NORMAL"
+    by: "Claude (auto)"
+    comment: "Stopped the 5M users/orders pass at 750k to free the container for the SQL migration rebuild. Data kept. Rerun after seed throughput fix."
 
 # TECHNICAL DEBT
 technical_debt:

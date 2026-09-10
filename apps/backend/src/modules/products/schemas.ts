@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { MAX_PAGE_SIZE, paginationQuerySchema } from '../../shared/schemas/pagination';
+
 export const createProductSchema = z
     .object({
         name: z
@@ -109,15 +111,17 @@ export const listProductsQuerySchema = z.object({
     sort: z
         .enum(['relevance', 'price_asc', 'price_desc', 'rating', 'newest'])
         .default('relevance'),
+}).extend(paginationQuerySchema.shape);
 
-    page: z.coerce.number().int().min(1).default(1),
-
-    limit: z.coerce.number().int().min(1).max(100).default(20),
+export const relatedProductsQuerySchema = z.object({
+    limit: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).default(5),
 });
 
 export const productParamsSchema = z.object({
     id: z.string().uuid('Invalid product id'),
 });
+
+export type RelatedProductsQuery = z.infer<typeof relatedProductsQuerySchema>;
 
 export type CreateProductInput = z.infer<typeof createProductSchema>;
 export type UpdateProductInput = z.infer<typeof updateProductSchema>;

@@ -26,7 +26,7 @@ import { randomUUID } from 'node:crypto';
 
 import { hash } from 'bcryptjs';
 
-import { prisma } from '../shared/database/prisma';
+import { execute, pool } from '../shared/database/pool';
 import { KNOWN_ACCOUNTS, seedConfig } from './seed/config';
 import {
   ADDRESS_COMPLEMENTS,
@@ -180,15 +180,17 @@ async function seedCategories(): Promise<CategoryRow[]> {
   const startedAt = Date.now();
   const rows = CATEGORY_TEMPLATES.map(template => ({ id: randomUUID(), template }));
 
-  await prisma.category.createMany({
-    data: rows.map(({ id, template }) => ({
-      id,
-      name: template.name,
-      slug: template.slug,
-      description: template.description,
-      active: true,
-    })),
-  });
+  await execute(
+    `INSERT INTO categories (id, name, slug, description, active, "createdAt", "updatedAt")
+     SELECT id, name, slug, description, true, now(), now()
+     FROM unnest($1::text[], $2::text[], $3::text[], $4::text[]) AS t(id, name, slug, description)`,
+    [
+      rows.map(row => row.id),
+      rows.map(row => row.template.name),
+      rows.map(row => row.template.slug),
+      rows.map(row => row.template.description),
+    ]
+  );
 
   logRow('categories', rows.length, startedAt);
   return rows;
@@ -276,14 +278,15 @@ async function seedProducts(categories: CategoryRow[]): Promise<ProductRef[]> {
       }
     }
 
-    await prisma.$executeRaw`
-      INSERT INTO products
-        (id, name, description, price, stock, "imageUrl", "categoryId", active, "createdAt", "updatedAt")
-      SELECT * FROM unnest(
-        ${ids}::uuid[], ${names}::text[], ${descriptions}::text[], ${prices}::text[]::numeric[],
-        ${stocks}::int[], ${imageUrls}::text[], ${categoryIds}::uuid[], ${actives}::boolean[],
-        ${createdAts}::timestamptz[], ${createdAts}::timestamptz[]
-      )`;
+    await execute(
+      `INSERT INTO products
+         (id, name, description, price, stock, "imageUrl", "categoryId", active, "createdAt", "updatedAt")
+       SELECT * FROM unnest(
+         $1::text[], $2::text[], $3::text[], $4::numeric[], $5::int[], $6::text[], $7::text[], $8::boolean[],
+         $9::timestamptz[], $9::timestamptz[]
+       )`,
+      [ids, names, descriptions, prices, stocks, imageUrls, categoryIds, actives, createdAts]
+    );
 
     inserted += size;
     progress.report(inserted);
@@ -462,57 +465,62 @@ async function seedUsersAndActivity(pool: ProductRef[]): Promise<Totals> {
     }
 
     // Parents first (users, addresses), then children. Each is one statement.
-    await prisma.$executeRaw`
-      INSERT INTO users (id, name, email, password, role, "createdAt", "updatedAt")
-      SELECT * FROM unnest(
-        ${u.id}::uuid[], ${u.name}::text[], ${u.email}::text[], ${u.password}::text[],
-        ${u.role}::text[]::"Role"[], ${u.createdAt}::timestamptz[], ${u.createdAt}::timestamptz[]
-      )`;
+    await execute(
+      `INSERT INTO users (id, name, email, password, role, "createdAt", "updatedAt")
+       SELECT * FROM unnest(
+         $1::text[], $2::text[], $3::text[], $4::text[], $5::text[]::"Role"[], $6::timestamptz[], $6::timestamptz[]
+       )`,
+      [u.id, u.name, u.email, u.password, u.role, u.createdAt]
+    );
 
-    await prisma.$executeRaw`
-      INSERT INTO addresses
-        (id, "userId", label, recipient, "zipCode", street, number, complement, neighborhood,
-         city, state, country, "isDefault", active, "createdAt", "updatedAt")
-      SELECT id, "userId", label, recipient, "zipCode", street, number, NULLIF(complement, ''), neighborhood,
-             city, state, 'BR', "isDefault", true, "createdAt", "createdAt"
-      FROM unnest(
-        ${a.id}::uuid[], ${a.userId}::uuid[], ${a.label}::text[], ${a.recipient}::text[],
-        ${a.zipCode}::text[], ${a.street}::text[], ${a.number}::text[], ${a.complement}::text[],
-        ${a.neighborhood}::text[], ${a.city}::text[], ${a.state}::text[], ${a.isDefault}::boolean[],
-        ${a.createdAt}::timestamptz[]
-      ) AS t(id, "userId", label, recipient, "zipCode", street, number, complement, neighborhood,
-             city, state, "isDefault", "createdAt")`;
+    await execute(
+      `INSERT INTO addresses
+         (id, "userId", label, recipient, "zipCode", street, number, complement, neighborhood,
+          city, state, country, "isDefault", active, "createdAt", "updatedAt")
+       SELECT id, "userId", label, recipient, "zipCode", street, number, NULLIF(complement, ''), neighborhood,
+              city, state, 'BR', "isDefault", true, "createdAt", "createdAt"
+       FROM unnest(
+         $1::text[], $2::text[], $3::text[], $4::text[], $5::text[], $6::text[], $7::text[], $8::text[],
+         $9::text[], $10::text[], $11::text[], $12::boolean[], $13::timestamptz[]
+       ) AS t(id, "userId", label, recipient, "zipCode", street, number, complement, neighborhood,
+              city, state, "isDefault", "createdAt")`,
+      [
+        a.id, a.userId, a.label, a.recipient, a.zipCode, a.street, a.number, a.complement,
+        a.neighborhood, a.city, a.state, a.isDefault, a.createdAt,
+      ]
+    );
 
     await Promise.all([
-      prisma.$executeRaw`
-        INSERT INTO carts (id, "userId", "createdAt", "updatedAt")
-        SELECT * FROM unnest(
-          ${c.id}::uuid[], ${c.userId}::uuid[], ${c.createdAt}::timestamptz[], ${c.createdAt}::timestamptz[]
-        )`,
-      prisma.$executeRaw`
-        INSERT INTO orders (id, "userId", "addressId", status, subtotal, shipping, total, "createdAt", "updatedAt")
-        SELECT * FROM unnest(
-          ${o.id}::uuid[], ${o.userId}::uuid[], ${o.addressId}::uuid[], ${o.status}::text[]::"OrderStatus"[],
-          ${o.subtotal}::text[]::numeric[], ${o.shipping}::text[]::numeric[], ${o.total}::text[]::numeric[],
-          ${o.createdAt}::timestamptz[], ${o.createdAt}::timestamptz[]
-        )`,
+      execute(
+        `INSERT INTO carts (id, "userId", "createdAt", "updatedAt")
+         SELECT * FROM unnest($1::text[], $2::text[], $3::timestamptz[], $3::timestamptz[])`,
+        [c.id, c.userId, c.createdAt]
+      ),
+      execute(
+        `INSERT INTO orders (id, "userId", "addressId", status, subtotal, shipping, total, "createdAt", "updatedAt")
+         SELECT * FROM unnest(
+           $1::text[], $2::text[], $3::text[], $4::text[]::"OrderStatus"[],
+           $5::numeric[], $6::numeric[], $7::numeric[], $8::timestamptz[], $8::timestamptz[]
+         )`,
+        [o.id, o.userId, o.addressId, o.status, o.subtotal, o.shipping, o.total, o.createdAt]
+      ),
     ]);
 
     await Promise.all([
-      prisma.$executeRaw`
-        INSERT INTO cart_items (id, "cartId", "productId", quantity, "createdAt", "updatedAt")
-        SELECT * FROM unnest(
-          ${ci.id}::uuid[], ${ci.cartId}::uuid[], ${ci.productId}::uuid[], ${ci.quantity}::int[],
-          ${ci.createdAt}::timestamptz[], ${ci.createdAt}::timestamptz[]
-        )`,
-      prisma.$executeRaw`
-        INSERT INTO order_items
-          (id, "orderId", "productId", "productName", "unitPrice", quantity, subtotal, "createdAt", "updatedAt")
-        SELECT * FROM unnest(
-          ${oi.id}::uuid[], ${oi.orderId}::uuid[], ${oi.productId}::uuid[], ${oi.productName}::text[],
-          ${oi.unitPrice}::text[]::numeric[], ${oi.quantity}::int[], ${oi.subtotal}::text[]::numeric[],
-          ${oi.createdAt}::timestamptz[], ${oi.createdAt}::timestamptz[]
-        )`,
+      execute(
+        `INSERT INTO cart_items (id, "cartId", "productId", quantity, "createdAt", "updatedAt")
+         SELECT * FROM unnest($1::text[], $2::text[], $3::text[], $4::int[], $5::timestamptz[], $5::timestamptz[])`,
+        [ci.id, ci.cartId, ci.productId, ci.quantity, ci.createdAt]
+      ),
+      execute(
+        `INSERT INTO order_items
+           (id, "orderId", "productId", "productName", "unitPrice", quantity, subtotal, "createdAt", "updatedAt")
+         SELECT * FROM unnest(
+           $1::text[], $2::text[], $3::text[], $4::text[], $5::numeric[], $6::int[], $7::numeric[],
+           $8::timestamptz[], $8::timestamptz[]
+         )`,
+        [oi.id, oi.orderId, oi.productId, oi.productName, oi.unitPrice, oi.quantity, oi.subtotal, oi.createdAt]
+      ),
     ]);
 
     totals.users += u.id.length;
@@ -539,7 +547,7 @@ async function seedUsersAndActivity(pool: ProductRef[]): Promise<Totals> {
 
 async function cleanDatabase(): Promise<void> {
   // TRUNCATE is O(1) regardless of row count; DELETE on millions of rows is not.
-  await prisma.$executeRawUnsafe(
+  await execute(
     'TRUNCATE TABLE order_items, orders, cart_items, carts, addresses, products, categories, users RESTART IDENTITY CASCADE'
   );
 }
@@ -582,5 +590,5 @@ main()
     process.exitCode = 1;
   })
   .finally(async () => {
-    await prisma.$disconnect();
+    await pool.end();
   });

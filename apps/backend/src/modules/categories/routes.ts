@@ -4,12 +4,14 @@ import { authenticate } from '../../shared/middlewares/authenticate';
 import { authorizeRoles } from '../../shared/middlewares/authorize-roles';
 import { validateBody } from '../../shared/middlewares/validate-body';
 import { validateParams } from '../../shared/middlewares/validate-params';
+import { validateQuery } from '../../shared/middlewares/validate-query';
+import { paginationQuerySchema } from '../../shared/schemas/pagination';
 import { categoriesController } from './controller';
 import { categoryParamsSchema, createCategorySchema, updateCategorySchema } from './schemas';
 
 const categoriesRoutes = Router();
 
-categoriesRoutes.get('/categories', categoriesController.list);
+categoriesRoutes.get('/categories', validateQuery(paginationQuerySchema), categoriesController.list);
 
 categoriesRoutes.post(
 	'/categories',

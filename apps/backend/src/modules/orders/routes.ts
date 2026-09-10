@@ -10,6 +10,8 @@ import {
     orderParamsSchema,
     updateOrderStatusSchema,
 } from './schemas';
+import { validateQuery } from '../../shared/middlewares/validate-query';
+import { paginationQuerySchema } from '../../shared/schemas/pagination';
 
 const ordersRoutes = Router();
 
@@ -20,7 +22,7 @@ ordersRoutes.post(
     ordersController.create
 );
 
-ordersRoutes.get('/orders', authenticate, ordersController.listMine);
+ordersRoutes.get('/orders', authenticate, validateQuery(paginationQuerySchema), ordersController.listMine);
 
 ordersRoutes.get(
     '/orders/:orderId',
@@ -33,6 +35,7 @@ ordersRoutes.get(
     '/admin/orders',
     authenticate,
     authorizeRoles('ADMIN'),
+    validateQuery(paginationQuerySchema),
     ordersController.listAdmin
 );
 

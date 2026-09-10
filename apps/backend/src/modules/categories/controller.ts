@@ -2,6 +2,7 @@ import type { RequestHandler } from 'express';
 
 import { categoriesService } from './service';
 import type { CategoryParams, CreateCategoryInput, UpdateCategoryInput } from './schemas';
+import type { PaginationQuery } from '../../shared/schemas/pagination';
 
 const create: RequestHandler = async (request, response, next) => {
 	try {
@@ -17,9 +18,11 @@ const create: RequestHandler = async (request, response, next) => {
 
 const list: RequestHandler = async (request, response, next) => {
 	try {
-		const categories = await categoriesService.list();
+		const pagination = request.validatedQuery as PaginationQuery;
 
-		response.status(200).json({ data: categories });
+		const page = await categoriesService.list(pagination);
+
+		response.status(200).json(page);
 	} catch (error) {
 		next(error);
 	}

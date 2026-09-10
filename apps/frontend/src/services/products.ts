@@ -31,7 +31,8 @@ export const productsService = {
   },
 
   async getCategories(): Promise<Category[]> {
-    const response = await apiClient.get<CategoriesResponse>('/categories')
-    return response.data.data
+    // 250 is the API-wide maximum page size; there are far fewer categories.
+    const response = await apiClient.get<CategoriesResponse>('/categories', { params: { limit: 250 } })
+    return response.data.items
   },
 }

@@ -39,6 +39,16 @@ services:
   postgres:
     image: postgres:16
     container_name: ecommerce-postgres
+    # Defaults (128MB shared_buffers) are sized for a laptop demo. With millions
+    # of rows the PK/unique btrees no longer fit in cache and inserts/lookups
+    # go to disk. 1GB is still modest for the 8GB Docker VM.
+    command: >
+      postgres
+      -c shared_buffers=1GB
+      -c effective_cache_size=3GB
+      -c max_wal_size=4GB
+      -c checkpoint_completion_target=0.9
+      -c work_mem=32MB
     environment:
       POSTGRES_USER: ecommerce
       POSTGRES_PASSWORD: ecommerce

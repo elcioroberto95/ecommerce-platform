@@ -1,4 +1,5 @@
-import { prisma } from '../../shared/database/prisma';
+import { buildUpdate, execute, query, queryOne } from '../../shared/database/pool';
+import type { AddressRow } from '../../shared/database/rows';
 
 type CreateAddressData = {
   userId: string;
@@ -17,116 +18,94 @@ type CreateAddressData = {
 
 type UpdateAddressData = Partial<Omit<CreateAddressData, 'userId'>>;
 
-const addressSelect = {
-  id: true,
-  userId: true,
-  label: true,
-  recipient: true,
-  zipCode: true,
-  street: true,
-  number: true,
-  complement: true,
-  neighborhood: true,
-  city: true,
-  state: true,
-  country: true,
-  isDefault: true,
-  createdAt: true,
-  updatedAt: true,
-} as const;
+/** Everything except the soft-delete flag. */
+export type PublicAddressRow = Omit<AddressRow, 'active'>;
+
+const COLUMNS = `
+  id, "userId", label, recipient, "zipCode", street, number, complement, neighborhood,
+  city, state, country, "isDefault", "createdAt", "updatedAt"`;
+
+const UPDATABLE_COLUMNS = [
+  'label', 'recipient', 'zipCode', 'street', 'number', 'complement',
+  'neighborhood', 'city', 'state', 'country', 'isDefault',
+] as const;
 
 export const addressesRepository = {
-  findManyByUserId(userId: string) {
-    return prisma.address.findMany({
-      where: {
-        userId,
-        active: true,
-      },
-      select: addressSelect,
-      orderBy: [
-        {
-          isDefault: 'desc',
-        },
-        {
-          createdAt: 'desc',
-        },
-      ],
-    });
+  async findManyByUserId(userId: string, offset: number, limit: number) {
+    const [items, countRows] = await Promise.all([
+      query<PublicAddressRow>(
+        `SELECT ${COLUMNS} FROM addresses
+         WHERE "userId" = $1 AND active
+         ORDER BY "isDefault" DESC, "createdAt" DESC
+         LIMIT $2 OFFSET $3`,
+        [userId, limit, offset]
+      ),
+      query<{ total: string }>('SELECT count(*)::text AS total FROM addresses WHERE "userId" = $1 AND active', [userId]),
+    ]);
+    return { items, total: Number((countRows[0] as { total: string }).total) };
   },
 
   findByIdAndUserId(id: string, userId: string) {
-    return prisma.address.findFirst({
-      where: {
-        id,
-        userId,
-        active: true,
-      },
-      select: addressSelect,
-    });
+    return queryOne<PublicAddressRow>(
+      `SELECT ${COLUMNS} FROM addresses WHERE id = $1 AND "userId" = $2 AND active`,
+      [id, userId]
+    );
   },
 
-  countActiveByUserId(userId: string) {
-    return prisma.address.count({
-      where: {
-        userId,
-        active: true,
-      },
-    });
+  async countActiveByUserId(userId: string) {
+    const row = await queryOne<{ total: string }>(
+      'SELECT count(*)::text AS total FROM addresses WHERE "userId" = $1 AND active',
+      [userId]
+    );
+    return Number(row?.total ?? 0);
   },
 
-  create(data: CreateAddressData) {
-    return prisma.address.create({
-      data,
-      select: addressSelect,
-    });
+  async create(data: CreateAddressData) {
+    const rows = await query<PublicAddressRow>(
+      `INSERT INTO addresses
+         (id, "userId", label, recipient, "zipCode", street, number, complement, neighborhood,
+          city, state, country, "isDefault", "createdAt", "updatedAt")
+       VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, now(), now())
+       RETURNING ${COLUMNS}`,
+      [
+        data.userId, data.label ?? null, data.recipient, data.zipCode, data.street, data.number,
+        data.complement ?? null, data.neighborhood, data.city, data.state, data.country, data.isDefault,
+      ]
+    );
+    return rows[0] as PublicAddressRow;
   },
 
-  updateById(id: string, data: UpdateAddressData) {
-    return prisma.address.update({
-      where: {
-        id,
-      },
-      data,
-      select: addressSelect,
-    });
+  async updateById(id: string, data: UpdateAddressData) {
+    const { text, values } = buildUpdate('addresses', id, data, UPDATABLE_COLUMNS, COLUMNS);
+    const rows = await query<PublicAddressRow>(text, values);
+    return rows[0] as PublicAddressRow;
   },
 
   unsetDefaultAddresses(userId: string) {
-    return prisma.address.updateMany({
-      where: {
-        userId,
-        active: true,
-        isDefault: true,
-      },
-      data: {
-        isDefault: false,
-      },
-    });
+    return execute(
+      `UPDATE addresses SET "isDefault" = false, "updatedAt" = now()
+       WHERE "userId" = $1 AND active AND "isDefault"`,
+      [userId]
+    );
   },
 
-  softDeleteById(id: string) {
-    return prisma.address.update({
-      where: {
-        id,
-      },
-      data: {
-        active: false,
-        isDefault: false,
-      },
-      select: addressSelect,
-    });
+  async softDeleteById(id: string) {
+    const rows = await query<PublicAddressRow>(
+      `UPDATE addresses SET active = false, "isDefault" = false, "updatedAt" = now()
+       WHERE id = $1
+       RETURNING ${COLUMNS}`,
+      [id]
+    );
+    return rows[0] as PublicAddressRow;
   },
 
   findFirstActiveByUserId(userId: string) {
-    return prisma.address.findFirst({
-      where: {
-        userId,
-        active: true,
-      },
-      select: addressSelect,
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
+    return queryOne<PublicAddressRow>(
+      `SELECT ${COLUMNS} FROM addresses
+       WHERE "userId" = $1 AND active
+       ORDER BY "createdAt" DESC
+       LIMIT 1`,
+      [userId]
+    );
   },
 };

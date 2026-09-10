@@ -43,7 +43,7 @@ export interface SeedConfig {
   productChunkSize: number;
   /** Users per chunk. Their addresses, carts and orders are built in the same pass. */
   userChunkSize: number;
-  /** Chunks inserted concurrently (bounded by the Prisma/pg connection pool). */
+  /** Chunks inserted concurrently (bounded by the pg connection pool, max 10). */
   concurrency: number;
   /**
    * Carts and orders reference products. Instead of keeping every product in

@@ -10,6 +10,7 @@ import {
     createProductSchema,
     listProductsQuerySchema,
     productParamsSchema,
+    relatedProductsQuerySchema,
     updateProductSchema,
 } from './schemas';
 
@@ -32,6 +33,7 @@ productsRoutes.get(
 productsRoutes.get(
     '/products/:id/related',
     validateParams(productParamsSchema),
+    validateQuery(relatedProductsQuerySchema),
     productsController.getRelated
 );
 

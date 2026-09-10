@@ -62,10 +62,21 @@ export interface RelatedProductsResponse {
   total: number
 }
 
-// Matches backend GET /categories
-export interface CategoriesResponse {
-  data: Category[]
+// Every backend list endpoint returns this envelope (limit is capped at 250)
+export interface PageMeta {
+  page: number
+  limit: number
+  total: number
+  totalPages: number
 }
+
+export interface Page<T> {
+  items: T[]
+  meta: PageMeta
+}
+
+// Matches backend GET /categories
+export type CategoriesResponse = Page<Category>
 
 // Matches backend listProductsQuerySchema
 export type ProductSort = 'relevance' | 'price_asc' | 'price_desc' | 'newest'
