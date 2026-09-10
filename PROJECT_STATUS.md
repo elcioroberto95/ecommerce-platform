@@ -81,6 +81,14 @@
   - Cart/auth stay client-side (JWT in localStorage) — see Next Steps
   - Verified in Docker: products in the HTML source, 404 status on unknown product, lint + typecheck + tests + build passing
 
+- ✅ **Dev Mode Debugável no Docker** (2026-09-10)
+  - `docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build` — Fast Refresh, overlay de erro e log de fetch
+  - Inspector do Next em `localhost:9229` e do backend em `localhost:9230`; `.vscode/launch.json` com attach + Chrome
+  - `logging.fetches.fullUrl`: cada fetch server-side aparece no log com URL e status de cache
+  - `.dockerignore` corrigido (`apps/frontend/.env.local` ia junto na imagem)
+  - Guia em `docs/DEBUGGING.md`
+  - `docker compose up --build` continua rodando o build de produção, sem mudança
+
 ---
 
 ## ⏳ In Progress
@@ -226,6 +234,7 @@ Frontend (apps/frontend/)
 ## 📝 Commits Log
 
 ```
+2026-09-10 b849d5d feat(infra): add a debuggable dev mode inside Docker
 2026-09-10 696f8cc refactor(frontend): render the catalog on the server
 2026-09-02 fae05de fix: add QueryClientProvider to root layout
 2026-09-02 c91c31b feat: implement cart page with full functionality

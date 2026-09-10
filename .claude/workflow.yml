@@ -224,6 +224,43 @@ workflows:
           - "Duplicate @types/react in the workspace (18.3.31 and 19.2.17); use explicit ReactNode imports, never the global React namespace"
           - "No loading skeleton on /products: reintroduce as <Suspense> around the grid inside the page, never as loading.tsx"
 
+      # STAGE 0.9: DEV EXPERIENCE (user request: "eu quero aprender debugar esse tipo de projeto")
+      dev_experience:
+        name: "Debuggable dev mode inside Docker"
+        status: COMPLETE
+        completion: 100%
+        duration: "0.5 day"
+        assigned_agent: "infra-agent"
+        started_date: "2026-09-10"
+        completed_date: "2026-09-10"
+
+        trigger: "The container only ran the production build: no Fast Refresh, no error overlay, no fetch logging, no breakpoints."
+
+        decisions:
+          - "docker-compose.dev.yml, not docker-compose.override.yml: plain `docker compose up` must keep exercising the production build"
+          - "Both Dockerfiles share a `deps` stage; `dev` and `builder` branch off it and the runner stage is untouched"
+          - "Inspector flag travels in NODE_OPTIONS as a bare port: as a CLI flag fork() inherits execArgv and both processes fight over the port, and Next parseInt()s the value to derive the child's"
+          - "socat republishes the forked Next server (127.0.0.1:9301) on 0.0.0.0:9229, since Node binds forked inspectors to localhost only"
+          - "Polling watchers (WATCHPACK_POLLING / CHOKIDAR_USEPOLLING): Docker Desktop does not forward file events from the Windows host"
+
+        done:
+          - "docker-compose.dev.yml (next dev + tsx watch, source bind mounts, inspector ports 9229/9230)"
+          - "dev target in apps/frontend/Dockerfile (with socat) and apps/backend/Dockerfile"
+          - "next.config.js: logging.fetches.fullUrl"
+          - ".vscode/launch.json: attach configs with localRoot/remoteRoot mapping + Chrome for client code"
+          - ".dockerignore: **/.env* (apps/frontend/.env.local was landing in the image)"
+          - "docs/DEBUGGING.md"
+
+        verified:
+          - "curl localhost:9229/json/list and localhost:9230/json/version answer from the host"
+          - "Hot reload through the bind mount, both directions"
+          - "Fetch log shows GET http://backend:3000/api/v1/... with cache status per render"
+          - "Production build still SSRs the catalog (6 products in the HTML) and returns 404 on unknown product; 9229 closed"
+
+        run:
+          dev: "docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build"
+          prod: "docker compose up --build -d"
+
       # STAGE 1: SEARCH PAGE
       search_page:
         name: "Search Page Implementation"
