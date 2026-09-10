@@ -1,0 +1,60 @@
+{
+  "comments": "Claude Code settings for ecommerce-platform",
+  "model": "claude-opus-5",
+  "hooks": {
+    "before-commit": {
+      "description": "Run linting and type checking before commit",
+      "commands": [
+        "pnpm format:check",
+        "pnpm lint",
+        "pnpm typecheck"
+      ],
+      "stopOnFailure": true
+    },
+    "before-push": {
+      "description": "Run tests before pushing to remote",
+      "commands": [
+        "pnpm test"
+      ],
+      "stopOnFailure": true
+    },
+    "post-merge": {
+      "description": "Install dependencies after merge",
+      "commands": [
+        "pnpm install"
+      ],
+      "stopOnFailure": false
+    }
+  },
+  "permissions": {
+    "allowlist": [
+      "bash:pnpm",
+      "bash:git",
+      "bash:npm",
+      "bash:docker",
+      "bash:docker-compose"
+    ]
+  },
+  "project": {
+    "name": "Ecommerce Platform",
+    "description": "E-commerce platform with focus on architecture, observability, and scalability",
+    "mainBranch": "master"
+  },
+  "codeStyle": {
+    "indentation": 2,
+    "lineLength": 100,
+    "trailingComma": "es5"
+  },
+  "testing": {
+    "framework": "jest",
+    "coverageThreshold": 70,
+    "testPatterns": [
+      "**/*.test.ts",
+      "**/*.spec.ts"
+    ]
+  },
+  "ai": {
+    "contextSize": "medium",
+    "thinkingLevel": "extended"
+  }
+}
