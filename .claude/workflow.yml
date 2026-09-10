@@ -1,0 +1,640 @@
+# E-commerce Platform - Workflow Configuration
+# Status: Production
+# Version: 1.0.0
+# Last Updated: 2026-09-01
+
+project:
+  name: E-commerce Platform
+  status: ACTIVE
+  phase: "Phase 1 - Week 1 (Customer Frontend)"
+  completion: 16%
+  team_size: 1
+  deadline: "2026-09-15"
+
+workflows:
+  # WORKFLOW 1: CUSTOMER FRONTEND
+  customer_frontend:
+    name: "Customer Frontend Pages"
+    status: IN_PROGRESS
+    completion: 16%
+    duration: "2 weeks"
+    start_date: "2026-09-01"
+    end_date: "2026-09-15"
+
+    stages:
+      # STAGE 0: CART PAGE (NEW - COMPLETED)
+      cart_page:
+        name: "Cart Page Implementation"
+        status: COMPLETE
+        completion: 100%
+        duration: "1.5 days"
+        assigned_agent: "frontend-cart-agent"
+        completed_date: "2026-09-02"
+
+        features_implemented:
+          - CartContext for state management
+          - CartItem component with quantity controls
+          - OrderSummary with pricing breakdown
+          - Add/remove/update items
+          - API integration complete
+          - Empty state handling
+          - Authentication check
+          - Free shipping threshold indicator
+
+        commits:
+          - "feat: implement cart page with full functionality"
+          - "fix: add QueryClientProvider to root layout"
+
+        acceptance_criteria_met:
+          - ✅ Add/remove items works
+          - ✅ Quantity updates persist
+          - ✅ Totals calculated correctly
+          - ✅ Empty state shows
+          - ✅ API integration complete
+          - ✅ TypeScript strict mode
+          - ✅ Build passing
+
+
+      # STAGE 0.5: API CONTRACT ALIGNMENT (auto-started: login loop bug in Docker)
+      api_contract_alignment:
+        name: "Frontend <-> Backend API Contract Alignment"
+        status: IN_PROGRESS
+        completion: 75%
+        duration: "1 day"
+        assigned_agent: "frontend-integration-agent"
+        started_date: "2026-09-09"
+
+        trigger: "Cart page marked COMPLETE without hitting real backend (violated RULE 5). Login page looped in Docker."
+
+        done:
+          - "Frontend Dockerfile + compose service (everything runs in Docker now)"
+          - "Frontend registered in pnpm workspace lockfile (npm package-lock removed)"
+          - "Frontend zod aligned to v4 (same as backend) - fixes resolver typing under pnpm"
+          - "API base URL fixed: /api -> /api/v1"
+          - "401 interceptor: only redirects when a token existed and not on /auth/* (fixes login loop)"
+          - "CartProvider only fetches /cart when authenticated"
+          - "AuthContext maps { accessToken, user }; register = POST /users + login"
+          - "User type matches backend (role CUSTOMER|ADMIN)"
+          - "Backend: Product.imageUrl column + migration; products responses include category {id,name,slug}"
+          - "Backend: validateParams added to every /products/:id route (getById and related returned 500)"
+          - "Frontend: Product/Category/ProductsResponse/ProductFilters types mirror backend exactly"
+          - "Frontend: productsService uses { items, meta }, { data } for categories, /products/:id/related"
+          - "Frontend: ProductCard uses imageUrl, category.name, stock, BRL prices, real add-to-cart (auth redirect)"
+          - "Frontend: Home 'Featured' = newest in-stock products from the API, with error/empty states"
+          - "Frontend: /products wired to the API (server-side search/category/price/stock/sort + pagination), mocks removed"
+          - "Frontend: /products/[id] wired to the API + related products, mocks removed"
+
+        remaining:
+          - "Cart types: productId / product.name / product.price / summary.total (front still uses product_id etc.)"
+          - "forgot-password page calls nonexistent endpoint - decide: implement or hide"
+          - "Header search box does nothing - wire to /products?search="
+          - "Frontend eslint config is broken (flat config + eslint 8 ignores src) - fix so lint runs"
+          - "Ratings/reviews: not in the domain; UI removed. Backend sort=rating and ratingMin are dead code"
+
+        acceptance_criteria:
+          - "Login/register/logout work in Docker"
+          - "Home shows real products from DB"
+          - "Cart page works end-to-end against real backend"
+          - "No invented types: every type mirrors a backend response"
+          - "npm run build passes in Docker"
+
+      # STAGE 0.6: SEED DATA (user request: "seeds estao porcos, usar faker, muita coisa no banco")
+      seed_data:
+        name: "Realistic Faker Seed"
+        status: COMPLETE
+        completion: 100%
+        completed_date: "2026-09-09"
+        duration: "0.5 day"
+        assigned_agent: "backend-data-agent"
+        started_date: "2026-09-09"
+
+        implementation:
+          - "apps/backend/src/database/seed.ts (compiled into dist, runs inside the container)"
+          - "apps/backend/src/database/seed/catalog.ts (12 pt-BR categories + product templates)"
+          - "apps/backend/src/database/seed/config.ts (SEED_PRODUCTS / SEED_USERS / SEED_ORDERS / SEED_RANDOM_SEED)"
+          - "@faker-js/faker (pt_BR) as runtime dependency"
+          - "Per-product price ranges (mousepad R$19-189, notebook gamer R$4.4k-16k)"
+          - "O(k) distinct sampling instead of shuffling 10k products per order"
+
+        verified:
+          - "Ran in container: 10000 products, 2002 users, 3999 addresses, 613 carts, 10000 orders, 30173 items in 39s"
+          - "Integrity: order.total = subtotal + shipping (0 mismatches); items sum = subtotal (0 mismatches)"
+          - "No duplicate emails; every user has a default address; orders spread over 12 months"
+          - "API: /categories 12, /products?category=&sort=price_desc, /products?search= all return seeded data"
+          - "Login cliente@ecommerce.dev works"
+          - "Old scripts/seed.ts removed (imported @prisma/client, incompatible with prisma-client generator)"
+
+        run: "docker compose exec backend node dist/database/seed.js"
+
+        scale_5m_run_2026_09_09:
+          status: PARTIAL
+          products: "5,000,000 in 554s (9k rows/s)"
+          users_pass: "stopped by decision at 750,000 users / 1.5M addresses / 222k carts / 740k orders / 2.16M order items (4 GB)"
+          why_stopped: "users pass ran at ~700 users/s (~8 rows each): generation and inserts do not overlap, and PK/unique btrees + FK checks vs 5M products exceeded 128MB shared_buffers. Full run would take 2.5h more; the SQL migration rebuild needed the container."
+          next: "Overlap generation with inserts (pipeline), rerun with postgres shared_buffers=1GB (now in compose)"
+
+        acceptance_criteria:
+          - "Seed runs inside Docker without tsx"
+          - "Default volume: 12 categories, 10000 products, 2002 users, ~4000 addresses, 10000 orders (~30k order items)"
+          - "Deterministic (same SEED_RANDOM_SEED => same data)"
+          - "Known accounts printed: admin@ecommerce.dev / cliente@ecommerce.dev"
+          - "Products coherent with their category, pt-BR text"
+
+
+      # STAGE 0.7: SQL MIGRATION (user request: "migrar tudo que é prisma pra query pura")
+      sql_migration:
+        name: "Replace Prisma Client with plain SQL (pg) + API-wide pagination"
+        status: COMPLETE
+        completion: 100%
+        duration: "0.5 day"
+        assigned_agent: "backend-data-agent"
+        started_date: "2026-09-09"
+        completed_date: "2026-09-09"
+
+        decisions:
+          - "Keep prisma CLI + schema.prisma + prisma/migrations as the migration tool (prisma migrate dev/deploy)"
+          - "Runtime uses `pg` Pool directly: src/shared/database/pool.ts (query, queryOne, execute, withTransaction, buildUpdate, escapeLike)"
+          - "Row types written by hand in src/shared/database/rows.ts (one interface per table)"
+          - "Repositories keep method names and return shapes, so services/controllers barely changed"
+          - "id and updatedAt had no DB default (ORM filled them): INSERTs use gen_random_uuid()::text and now()"
+          - "NUMERIC stays string at the repository level; services already Number() it"
+          - "LIKE wildcards in search are escaped (escapeLike) - the ORM did this implicitly"
+          - "Every list endpoint returns { items, meta } and accepts page/limit; limit is capped at 250 (src/shared/schemas/pagination.ts)"
+
+        done:
+          - "pool.ts + rows.ts + schemas/pagination.ts"
+          - "users, categories, products, cart, addresses, orders repositories in SQL"
+          - "orders.createFromCart as an explicit transaction (stock guard UPDATE ... WHERE stock >= qty)"
+          - "Pagination on /categories, /products, /products/:id/related, /users/me/addresses, /orders, /admin/orders"
+          - "seed uses pg directly (execute with $n params)"
+          - "@prisma/client, @prisma/adapter-pg removed; src/generated deleted; Dockerfile no longer runs prisma generate"
+          - "Frontend: categories service reads the { items, meta } envelope"
+          - "docker-compose: postgres tuned (shared_buffers=1GB, effective_cache_size=3GB, max_wal_size=4GB, work_mem=32MB)"
+
+        verified:
+          - "verify-api.sh ALL CHECKS PASSED against the container (5M products, 750k users, 740k orders)"
+          - "categories paginated (12 total); limit=251 rejected on categories, products, related"
+          - "products filters/sort/search (LIKE escaping) OK; detail 200, invalid id 400, unknown 404"
+          - "users: create 201 (no password leaked), duplicate 409, login 200, wrong password 401, PATCH /users/me"
+          - "cart: add merges quantity, update, over-stock 400, remove, clear"
+          - "addresses: first is default, default reorders list, delete moves default to next"
+          - "orders: empty cart 400; create decrements stock 13->11 and empties cart; list/detail; admin page 3 of 740k; customer 403"
+
+        known_debt:
+          - "products.sort=rating and ratingMin are accepted but do nothing (no ratings in the domain)"
+          - "count(*) on every list is a full scan at millions of rows -> db_performance stage"
+
+      # STAGE 1: SEARCH PAGE
+      search_page:
+        name: "Search Page Implementation"
+        status: READY
+        completion: 0%
+        duration: "2 days"
+        assigned_agent: "frontend-search-agent"
+
+        requirements:
+          - Filter by category
+          - Filter by price range
+          - Sort options (price, rating, newest)
+          - Pagination (10/20/50)
+          - URL query params persistence
+          - Mobile responsive
+          - Empty state handling
+
+        blockers: []
+
+        dependencies:
+          - previous_stage: "home_page"
+          - required_components: ["ProductCard", "Filters", "Pagination"]
+
+        acceptance_criteria:
+          - "All filters work correctly"
+          - "URL params sync with state"
+          - "Pagination works 10/20/50 items"
+          - "Mobile layout responsive"
+          - "Tests pass (unit + component)"
+          - "Code reviewed and approved"
+
+        commits_expected:
+          - "feat: implement search page with filters"
+
+        agent_rules:
+          - "Use React hooks for state management"
+          - "Validate with Zod schemas"
+          - "Use React Query for API calls"
+          - "No mock data - call real API"
+          - "100% TypeScript (no any)"
+          - "Test critical paths"
+
+      # STAGE 2: COLLECTION PAGE
+      collection_page:
+        name: "Collection Page Implementation"
+        status: PENDING
+        completion: 0%
+        duration: "1 day"
+        assigned_agent: "frontend-collection-agent"
+
+        requirements:
+          - Dynamic category filtering
+          - Reuse search component
+          - Navigation from home
+          - Show category title
+
+        blockers:
+          - search_page: "Search page must be done first"
+
+        dependencies:
+          - previous_stage: "search_page"
+          - required_components: ["SearchPage (reused)"]
+
+        acceptance_criteria:
+          - "Collection page shows correct category"
+          - "Filters pre-filled by category"
+          - "Navigation works from home"
+          - "Mobile responsive"
+          - "Tests pass"
+
+        commits_expected:
+          - "feat: implement collection page"
+
+        agent_rules:
+          - "Reuse search component - DRY principle"
+          - "Dynamic route [slug]"
+          - "Pre-filter by category_id"
+
+      # STAGE 3: PRODUCT DETAIL
+      product_detail_upgrade:
+        name: "Product Detail Page Upgrade"
+        status: PENDING
+        completion: 30%
+        duration: "1.5 days"
+        assigned_agent: "frontend-product-detail-agent"
+
+        requirements:
+          - Image carousel with thumbnails
+          - Complete specifications table
+          - Reviews section (mock initially)
+          - Related products carousel
+          - Add to cart integration
+          - Wishlist button
+          - Out of stock handling
+          - Breadcrumb navigation
+
+        blockers:
+          - backend_api_product_detail: "GET /products/:id with full specs"
+          - backend_api_related_products: "GET /products/related endpoint"
+
+        dependencies:
+          - previous_stage: "search_page"
+          - required_components: ["ImageCarousel", "ReviewsSection", "ProductSpecs"]
+
+        acceptance_criteria:
+          - "Image carousel works (swipe on mobile)"
+          - "All specs display correctly"
+          - "Related products show"
+          - "Add to cart works"
+          - "Out of stock state handled"
+          - "Tests pass"
+          - "Lighthouse score 90+"
+
+        commits_expected:
+          - "feat: complete product detail page"
+
+        agent_rules:
+          - "Optimize images for web"
+          - "Lazy load related products"
+          - "Add proper alt tags"
+          - "Handle API errors gracefully"
+
+      # STAGE 5: CHECKOUT PAGE
+      checkout_page:
+        name: "Checkout Page (Multi-step Form)"
+        status: PENDING
+        completion: 0%
+        duration: "3 days"
+        assigned_agent: "frontend-checkout-agent"
+
+        requirements:
+          - Multi-step form (3 steps)
+          - Step 1: Shipping address selection + new address form
+          - Step 2: Delivery options (mock)
+          - Step 3: Review & confirm
+          - Form validation (Zod)
+          - Only logged in users
+          - Address API integration
+          - Order creation (POST /orders)
+          - Success page + redirect
+          - Error handling + retry
+
+        blockers:
+          - backend_api_addresses: "Addresses CRUD endpoints"
+          - backend_api_orders: "Orders creation endpoint"
+          - auth_context: "User must be authenticated"
+
+        dependencies:
+          - previous_stage: "cart_page"
+          - required_components: ["AddressForm", "StepIndicator", "OrderSummary"]
+
+        acceptance_criteria:
+          - "Multi-step form works"
+          - "Address selection functional"
+          - "Create new address works"
+          - "Shipping methods display (mock)"
+          - "Order review shows all info"
+          - "Order creation succeeds"
+          - "Success page shows confirmation"
+          - "Error handling + retry logic"
+          - "Mobile responsive"
+          - "Tests pass (all steps)"
+
+        commits_expected:
+          - "feat: implement checkout page (multi-step form)"
+          - "feat: checkout payment mock (technical debt)"
+
+        agent_rules:
+          - "Validate each step before proceeding"
+          - "Save state in context"
+          - "Handle address creation inline"
+          - "Mock shipping methods"
+          - "Clear cart after order"
+          - "Require authentication (redirect if not)"
+
+      # STAGE 6: PROFILE PAGE
+      profile_page:
+        name: "Profile Page with Tabs"
+        status: PENDING
+        completion: 0%
+        duration: "2 days"
+        assigned_agent: "frontend-profile-agent"
+
+        requirements:
+          - Tabbed interface (4 tabs)
+          - Tab 1: Personal info (edit)
+          - Tab 2: Addresses (CRUD complete)
+          - Tab 3: Settings (password change)
+          - Tab 4: Logout
+          - Avatar upload
+          - Form validation
+          - API integration (all endpoints)
+          - Success messages
+          - Only logged in users
+
+        blockers:
+          - backend_api_users_profile: "Profile CRUD endpoints"
+          - backend_api_addresses_crud: "Full address CRUD"
+          - backend_api_password: "Password change endpoint"
+
+        dependencies:
+          - previous_stage: "checkout_page"
+          - required_stage: "auth_system"
+          - required_components: ["TabsNav", "AddressForm", "AvatarUpload"]
+
+        acceptance_criteria:
+          - "All tabs functional"
+          - "Edit profile works"
+          - "Address CRUD complete (add/edit/delete/default)"
+          - "Password change works"
+          - "Avatar upload works"
+          - "All forms validated"
+          - "API calls succeed"
+          - "Success messages show"
+          - "Mobile responsive"
+          - "Tests pass (all tabs)"
+
+        commits_expected:
+          - "feat: implement profile page with all features"
+          - "feat: complete address management (CRUD)"
+
+        agent_rules:
+          - "Create ProfileContext"
+          - "Handle image uploads (to API or S3)"
+          - "Require authentication"
+          - "Validate all forms with Zod"
+          - "Show success/error toast"
+          - "Sidebar sticky on scroll"
+
+      # STAGE 7: ORDERS PAGES
+      orders_pages:
+        name: "Orders and Order Details Pages"
+        status: PENDING
+        completion: 0%
+        duration: "1 day"
+        assigned_agent: "frontend-orders-agent"
+
+        requirements:
+          - Orders list page (pagination)
+          - Order card component
+          - Status badges
+          - Order details page
+          - Timeline visualization
+          - Shipping info display
+          - Price breakdown
+          - Tracking (mock)
+          - Invoice download (mock)
+          - Reorder button (mock)
+
+        blockers:
+          - backend_api_orders_list: "GET /orders endpoint"
+          - backend_api_order_detail: "GET /orders/:id endpoint"
+
+        dependencies:
+          - previous_stage: "profile_page"
+          - required_components: ["OrderCard", "Timeline", "OrderSummary"]
+
+        acceptance_criteria:
+          - "Orders list shows all user orders"
+          - "Pagination works"
+          - "Status badges display correctly"
+          - "Order details page loads"
+          - "Timeline shows events"
+          - "Tracking displays (mock)"
+          - "Mobile responsive"
+          - "Tests pass"
+
+        commits_expected:
+          - "feat: implement orders and order details pages"
+
+        agent_rules:
+          - "Use React Query for caching"
+          - "Format dates consistently"
+          - "Show status timeline visually"
+          - "Mock tracking/invoice for now"
+          - "Only show user's own orders"
+
+# BLOCKERS & DEPENDENCIES
+blockers:
+  backend_api_products_filters:
+    status: BLOCKED
+    resolved_by: "Backend team"
+    blocking: ["search_page", "collection_page"]
+    resolution_criteria: "GET /products?category=X&price=Y&sort=Z working"
+
+  backend_api_cart:
+    status: BLOCKED
+    resolved_by: "Backend team"
+    blocking: ["cart_page", "checkout_page"]
+    resolution_criteria: "All cart endpoints implemented and tested"
+
+  backend_api_orders:
+    status: BLOCKED
+    resolved_by: "Backend team"
+    blocking: ["checkout_page", "orders_pages"]
+    resolution_criteria: "Orders CRUD endpoints ready"
+
+  backend_api_addresses_crud:
+    status: BLOCKED
+    resolved_by: "Backend team"
+    blocking: ["profile_page", "checkout_page"]
+    resolution_criteria: "Full address CRUD working"
+
+  auth_system:
+    status: RESOLVED
+    blocking: ["checkout_page", "profile_page", "orders_pages"]
+    resolution_criteria: "AuthContext + login/register working"
+
+# AGENTS CONFIGURATION
+agents:
+  frontend_search_agent:
+    name: "Frontend Search Agent"
+    capabilities:
+      - "Implement React components"
+      - "Fetch from API"
+      - "State management (React Query)"
+      - "Form validation (Zod)"
+      - "Write tests"
+      - "Create commits"
+    rules:
+      - "No mock data - use real API"
+      - "100% TypeScript"
+      - "React Query for server state"
+      - "Zod for validation"
+      - "Tests required"
+    tasks_queue: []
+
+  frontend_checkout_agent:
+    name: "Frontend Checkout Agent"
+    capabilities:
+      - "Multi-step forms"
+      - "Context API"
+      - "Form validation"
+      - "API integration"
+      - "Error handling"
+      - "Tests"
+    rules:
+      - "Validate each step"
+      - "Save state in context"
+      - "Handle errors gracefully"
+      - "Clear cart after order"
+      - "Require authentication"
+    tasks_queue: []
+
+  frontend_profile_agent:
+    name: "Frontend Profile Agent"
+    capabilities:
+      - "Tabbed interfaces"
+      - "CRUD operations"
+      - "File uploads"
+      - "Form validation"
+      - "API integration"
+      - "Tests"
+    rules:
+      - "All tabs independent"
+      - "Full CRUD for addresses"
+      - "Require authentication"
+      - "Show success messages"
+      - "Handle errors"
+    tasks_queue: []
+
+# METRICS & TRACKING
+metrics:
+  current_completion: 30%
+  target_completion: 100%
+  timeline: "2 weeks"
+  blockers_count: 5
+  resolved_blockers: 1
+  pending_blockers: 4
+
+  progress_by_stage:
+    home_page: 80%
+    search_page: 0%
+    collection_page: 0%
+    product_detail_upgrade: 30%
+    cart_page: 0%
+    checkout_page: 0%
+    profile_page: 0%
+    orders_pages: 0%
+
+# DECISION LOG (Add here when making decisions)
+decisions:
+  - id: "dec_001"
+    date: "2026-09-09"
+    stage: "api_contract_alignment"
+    action: "START"
+    priority: "HIGH"
+    by: "Claude (auto) - user reported login loop while validating Docker run"
+    comment: "Cart page was marked COMPLETE with invented types. Alignment stage created and started to unblock the running app. Remaining items need a WORKFLOW DECISION to continue."
+  - id: "dec_002"
+    date: "2026-09-09"
+    stage: "infra"
+    action: "RULE"
+    priority: "HIGH"
+    by: "User"
+    comment: "Everything runs in Docker (docker compose up --build). Never run backend/frontend directly on the host."
+  - id: "dec_003"
+    date: "2026-09-09"
+    stage: "seed_data"
+    action: "START"
+    priority: "HIGH"
+    by: "User"
+    comment: "Replace hardcoded seed with faker-based generator producing a large dataset."
+  - id: "dec_004"
+    date: "2026-09-09"
+    stage: "seed_data"
+    action: "SCALE"
+    priority: "HIGH"
+    by: "User"
+    comment: "5M products, 5M users, 5M orders. Seed rewritten as streaming unnest inserts; faker dropped for word lists + PRNG."
+  - id: "dec_005"
+    date: "2026-09-09"
+    stage: "sql_migration"
+    action: "START"
+    priority: "HIGH"
+    by: "User"
+    comment: "Remove Prisma Client from the runtime so the SQL is explicit and understandable. Keep Prisma only for migrations."
+  - id: "dec_006"
+    date: "2026-09-09"
+    stage: "sql_migration"
+    action: "RULE"
+    priority: "HIGH"
+    by: "User"
+    comment: "Every list endpoint must be paginated; no API may return more than 250 rows per request."
+  - id: "dec_007"
+    date: "2026-09-09"
+    stage: "seed_data"
+    action: "PAUSE"
+    priority: "NORMAL"
+    by: "Claude (auto)"
+    comment: "Stopped the 5M users/orders pass at 750k to free the container for the SQL migration rebuild. Data kept. Rerun after seed throughput fix."
+
+# TECHNICAL DEBT
+technical_debt:
+  - id: "td_001"
+    name: "Payment Processing Mock"
+    description: "Checkout uses mock payment - replace in Phase 2"
+    severity: "HIGH"
+    blocked_by: "Payment API integration"
+    resolve_in: "Phase 2"
+
+  - id: "td_002"
+    name: "Shipping Calculation Mock"
+    description: "Fixed shipping cost - implement real calculation"
+    severity: "MEDIUM"
+    blocked_by: "Shipping API"
+    resolve_in: "Phase 2"
+
+  - id: "td_003"
+    name: "Invoice Download Mock"
+    description: "Invoice download shows mock - implement real PDF"
+    severity: "LOW"
+    blocked_by: "PDF generation service"
+    resolve_in: "Phase 3"

@@ -19,9 +19,36 @@ services:
       redis:
         condition: service_started
 
+  frontend:
+    build:
+      context: .
+      dockerfile: apps/frontend/Dockerfile
+      args:
+        # Browser-side URL: the browser talks to the API through the host port mapping
+        NEXT_PUBLIC_API_URL: http://localhost:3000/api/v1
+        NEXT_PUBLIC_APP_URL: http://localhost:3001
+    container_name: ecommerce-frontend
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+    ports:
+      - "3001:3001"
+    depends_on:
+      - backend
+
   postgres:
     image: postgres:16
     container_name: ecommerce-postgres
+    # Defaults (128MB shared_buffers) are sized for a laptop demo. With millions
+    # of rows the PK/unique btrees no longer fit in cache and inserts/lookups
+    # go to disk. 1GB is still modest for the 8GB Docker VM.
+    command: >
+      postgres
+      -c shared_buffers=1GB
+      -c effective_cache_size=3GB
+      -c max_wal_size=4GB
+      -c checkpoint_completion_target=0.9
+      -c work_mem=32MB
     environment:
       POSTGRES_USER: ecommerce
       POSTGRES_PASSWORD: ecommerce

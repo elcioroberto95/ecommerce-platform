@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { MAX_PAGE_SIZE, paginationQuerySchema } from '../../shared/schemas/pagination';
+
 export const createProductSchema = z
     .object({
         name: z
@@ -22,6 +24,16 @@ export const createProductSchema = z
             .int('Stock must be an integer')
             .min(0, 'Stock must be greater than or equal to zero')
             .default(0),
+
+        imageUrl: z
+            .string()
+            .trim()
+            .url('Image URL must be a valid URL')
+            .max(500, 'Image URL must have at most 500 characters')
+            .optional()
+            .nullable(),
+
+        categoryId: z.string().uuid('Invalid category id').optional().nullable(),
     })
     .strict();
 
@@ -48,6 +60,16 @@ export const updateProductSchema = z
             .int('Stock must be an integer')
             .min(0, 'Stock must be greater than or equal to zero')
             .optional(),
+
+        imageUrl: z
+            .string()
+            .trim()
+            .url('Image URL must be a valid URL')
+            .max(500, 'Image URL must have at most 500 characters')
+            .optional()
+            .nullable(),
+
+        categoryId: z.string().uuid('Invalid category id').optional().nullable(),
     })
     .strict()
     .refine(data => Object.keys(data).length > 0, {
@@ -61,17 +83,48 @@ export const listProductsQuerySchema = z.object({
         .optional()
         .transform(value => (value ? value : undefined)),
 
-    page: z.coerce.number().int().min(1).default(1),
+    category: z
+        .string()
+        .uuid()
+        .optional(),
 
-    limit: z.coerce.number().int().min(1).max(100).default(20),
+    priceMin: z.coerce
+        .number()
+        .min(0)
+        .optional(),
+
+    priceMax: z.coerce
+        .number()
+        .min(0)
+        .optional(),
+
+    ratingMin: z.coerce
+        .number()
+        .min(0)
+        .max(5)
+        .optional(),
+
+    inStock: z.coerce
+        .boolean()
+        .optional(),
+
+    sort: z
+        .enum(['relevance', 'price_asc', 'price_desc', 'rating', 'newest'])
+        .default('relevance'),
+}).extend(paginationQuerySchema.shape);
+
+export const relatedProductsQuerySchema = z.object({
+    limit: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).default(5),
 });
+
 export const productParamsSchema = z.object({
     id: z.string().uuid('Invalid product id'),
 });
 
+export type RelatedProductsQuery = z.infer<typeof relatedProductsQuerySchema>;
+
 export type CreateProductInput = z.infer<typeof createProductSchema>;
 export type UpdateProductInput = z.infer<typeof updateProductSchema>;
 export type ListProductsQuery = z.infer<typeof listProductsQuerySchema>;
-
 
 export type ProductParams = z.infer<typeof productParamsSchema>;

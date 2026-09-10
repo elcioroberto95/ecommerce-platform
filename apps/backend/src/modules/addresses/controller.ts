@@ -7,6 +7,7 @@ import type {
   CreateAddressInput,
   UpdateAddressInput,
 } from './schemas';
+import type { PaginationQuery } from '../../shared/schemas/pagination';
 
 const list: RequestHandler = async (request, response, next) => {
   try {
@@ -14,9 +15,11 @@ const list: RequestHandler = async (request, response, next) => {
       throw new UnauthorizedError('Missing authenticated user');
     }
 
-    const addresses = await addressesService.list(request.user.id);
+    const pagination = request.validatedQuery as PaginationQuery;
 
-    response.status(200).json(addresses);
+    const page = await addressesService.list(request.user.id, pagination);
+
+    response.status(200).json(page);
   } catch (error) {
     next(error);
   }

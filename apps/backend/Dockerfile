@@ -15,14 +15,6 @@ RUN pnpm install --frozen-lockfile
 
 COPY apps/backend ./apps/backend
 
-ENV DATABASE_URL="postgresql://ecommerce:ecommerce@postgres:5432/ecommerce"
-
-RUN node -v
-RUN pnpm -v
-RUN pnpm --filter backend list prisma @prisma/client
-RUN find /app/node_modules/.pnpm -path "*prisma/build/index.js" -print
-
-RUN pnpm --filter backend exec prisma generate
 RUN pnpm --filter backend run build
 
 

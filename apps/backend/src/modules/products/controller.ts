@@ -6,6 +6,7 @@ import type {
   ListProductsQuery,
   ProductParams,
   UpdateProductInput,
+  RelatedProductsQuery,
 } from './schemas';
 
 const create: RequestHandler = async (request, response, next) => {
@@ -69,10 +70,24 @@ const remove: RequestHandler = async (request, response, next) => {
   }
 };
 
+const getRelated: RequestHandler = async (request, response, next) => {
+  try {
+    const { id } = request.validatedParams as ProductParams;
+    const { limit } = request.validatedQuery as RelatedProductsQuery;
+
+    const result = await productsService.getRelated(id, limit);
+
+    response.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const productsController = {
   create,
   list,
   getById,
   update,
   remove,
+  getRelated,
 };

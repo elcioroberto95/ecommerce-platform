@@ -1,10 +1,13 @@
 import { NotFoundError } from '../../core/errors/not-found-error';
 import { addressesRepository } from './repository';
+import { buildPage, toOffset, type PaginationQuery } from '../../shared/schemas/pagination';
 import type { CreateAddressInput, UpdateAddressInput } from './schemas';
 
 export const addressesService = {
-  async list(userId: string) {
-    return addressesRepository.findManyByUserId(userId);
+  async list(userId: string, pagination: PaginationQuery) {
+    const { items, total } = await addressesRepository.findManyByUserId(userId, toOffset(pagination), pagination.limit);
+
+    return buildPage(items, total, pagination);
   },
 
   async create(userId: string, data: CreateAddressInput) {

@@ -27,8 +27,13 @@ export const productsService = {
 
     const result = await productsRepository.findMany({
       search: query.search,
+      categoryId: query.category,
+      priceMin: query.priceMin,
+      priceMax: query.priceMax,
+      inStock: query.inStock,
       skip,
       take: limit,
+      orderBy: query.sort,
     });
 
     return {
@@ -74,5 +79,16 @@ export const productsService = {
     const removedProduct = await productsRepository.removeById(id);
 
     return formatProduct(removedProduct);
+  },
+
+  async getRelated(id: string, limit: number = 5) {
+    await productsRepository.findById(id);
+
+    const result = await productsRepository.findRelated(id, limit);
+
+    return {
+      items: result.items.map(formatProduct),
+      total: result.total,
+    };
   },
 };

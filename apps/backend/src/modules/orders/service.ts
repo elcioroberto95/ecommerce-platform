@@ -1,6 +1,7 @@
 import { BadRequestError } from '../../core/errors/bad-request-error';
 import { NotFoundError } from '../../core/errors/not-found-error';
 import { ordersRepository } from './repository';
+import { buildPage, toOffset, type PaginationQuery } from '../../shared/schemas/pagination';
 import type { CreateOrderInput, UpdateOrderStatusInput } from './schemas';
 
 type OrderWithDetails = NonNullable<
@@ -126,10 +127,10 @@ export const ordersService = {
     return formatOrder(order);
   },
 
-  async listMine(userId: string) {
-    const orders = await ordersRepository.findManyByUserId(userId);
+  async listMine(userId: string, pagination: PaginationQuery) {
+    const { items, total } = await ordersRepository.findManyByUserId(userId, toOffset(pagination), pagination.limit);
 
-    return orders.map(formatOrder);
+    return buildPage(items.map(formatOrder), total, pagination);
   },
 
   async getMine(userId: string, orderId: string) {
@@ -142,13 +143,17 @@ export const ordersService = {
     return formatOrder(order);
   },
 
-  async listAdmin() {
-    const orders = await ordersRepository.findManyAdmin();
+  async listAdmin(pagination: PaginationQuery) {
+    const { items, total } = await ordersRepository.findManyAdmin(toOffset(pagination), pagination.limit);
 
-    return orders.map(order => ({
-      ...formatOrder(order),
-      user: order.user,
-    }));
+    return buildPage(
+      items.map(order => ({
+        ...formatOrder(order),
+        user: order.user,
+      })),
+      total,
+      pagination
+    );
   },
 
   async updateStatus(orderId: string, data: UpdateOrderStatusInput) {

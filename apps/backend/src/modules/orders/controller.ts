@@ -7,6 +7,7 @@ import type {
   OrderParams,
   UpdateOrderStatusInput,
 } from './schemas';
+import type { PaginationQuery } from '../../shared/schemas/pagination';
 
 const create: RequestHandler = async (request, response, next) => {
   try {
@@ -30,9 +31,11 @@ const listMine: RequestHandler = async (request, response, next) => {
       throw new UnauthorizedError('Missing authenticated user');
     }
 
-    const orders = await ordersService.listMine(request.user.id);
+    const pagination = request.validatedQuery as PaginationQuery;
 
-    response.status(200).json(orders);
+    const page = await ordersService.listMine(request.user.id, pagination);
+
+    response.status(200).json(page);
   } catch (error) {
     next(error);
   }
@@ -54,11 +57,13 @@ const getMine: RequestHandler = async (request, response, next) => {
   }
 };
 
-const listAdmin: RequestHandler = async (_request, response, next) => {
+const listAdmin: RequestHandler = async (request, response, next) => {
   try {
-    const orders = await ordersService.listAdmin();
+    const pagination = request.validatedQuery as PaginationQuery;
 
-    response.status(200).json(orders);
+    const page = await ordersService.listAdmin(pagination);
+
+    response.status(200).json(page);
   } catch (error) {
     next(error);
   }

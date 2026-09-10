@@ -10,11 +10,13 @@ export default tseslint.config(
       '**/dist/**',
       '**/build/**',
       '**/.turbo/**',
+      '**/.next/**',
+      '**/coverage/**',
     ],
   },
   // Config para arquivos .js (sem type-checking)
   {
-    files: ['**/*.js', '**/*.mjs'],
+    files: ['**/*.js', '**/*.mjs', '**/*.cjs'],
     ...js.configs.recommended,
     languageOptions: {
       globals: {
@@ -23,9 +25,9 @@ export default tseslint.config(
       },
     },
   },
-  // Config para arquivos .ts (com type-checking)
+  // Config para arquivos .ts/.tsx (com type-checking)
   {
-    files: ['**/*.ts'],
+    files: ['**/*.ts', '**/*.tsx'],
     extends: [
       ...tseslint.configs.recommended,
     ],

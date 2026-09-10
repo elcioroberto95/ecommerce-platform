@@ -9,12 +9,15 @@ import {
     createAddressSchema,
     updateAddressSchema,
 } from './schemas';
+import { validateQuery } from '../../shared/middlewares/validate-query';
+import { paginationQuerySchema } from '../../shared/schemas/pagination';
 
 const addressesRoutes = Router();
 
 addressesRoutes.get(
     '/users/me/addresses',
     authenticate,
+    validateQuery(paginationQuerySchema),
     addressesController.list
 );
 
