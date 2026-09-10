@@ -31,6 +31,9 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3001
+      # Server components fetch over the Docker network; the browser-facing
+      # NEXT_PUBLIC_API_URL (host port mapping) is unreachable from in here.
+      API_INTERNAL_URL: http://backend:3000/api/v1
     ports:
       - "3001:3001"
     depends_on:
