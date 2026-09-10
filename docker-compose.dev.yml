@@ -9,6 +9,9 @@ services:
   backend:
     build:
       target: dev
+    # Own tag: dev and prod would otherwise overwrite the same image, and
+    # `up -d` without --build would start the wrong one.
+    image: ecommerce-platform-backend-dev
     # tsx spawns the app as a child process, so the inspector flag goes to the
     # child instead of NODE_OPTIONS (which would bind the port twice).
     command: pnpm exec tsx watch --inspect=0.0.0.0:9230 src/server.ts
@@ -27,6 +30,7 @@ services:
   frontend:
     build:
       target: dev
+    image: ecommerce-platform-frontend-dev
     # `next dev` forks the real server with --inspect=<CLI port + 1>, always bound
     # to 127.0.0.1, so socat republishes it on 9229 for the host. The flag has to
     # travel in NODE_OPTIONS: as a CLI flag it is inherited through execArgv and
