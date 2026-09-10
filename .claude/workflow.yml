@@ -87,7 +87,6 @@ workflows:
         remaining:
           - "Cart types: productId / product.name / product.price / summary.total (front still uses product_id etc.)"
           - "forgot-password page calls nonexistent endpoint - decide: implement or hide"
-          - "Header search box does nothing - wire to /products?search="
           - "Frontend eslint config is broken (flat config + eslint 8 ignores src) - fix so lint runs"
           - "Ratings/reviews: not in the domain; UI removed. Backend sort=rating and ratingMin are dead code"
 
@@ -183,6 +182,47 @@ workflows:
         known_debt:
           - "products.sort=rating and ratingMin are accepted but do nothing (no ratings in the domain)"
           - "count(*) on every list is a full scan at millions of rows -> db_performance stage"
+
+      # STAGE 0.8: SSR MIGRATION (user request: "vamos tirar esse monte de use client")
+      ssr_migration:
+        name: "Move the catalog from client-side fetching to Server Components"
+        status: COMPLETE
+        completion: 100%
+        duration: "0.5 day"
+        assigned_agent: "frontend-ssr-agent"
+        started_date: "2026-09-10"
+        completed_date: "2026-09-10"
+
+        trigger: "Root layout carried 'use client', so every page fetched in the browser and the HTML shipped empty."
+
+        decisions:
+          - "Server fetches go through lib/server-api.ts with cache: 'no-store' (prices/stock move per request, and it keeps the route out of static generation)"
+          - "API_INTERNAL_URL (http://backend:3000/api/v1) for server components; NEXT_PUBLIC_API_URL stays the browser-facing URL"
+          - "Catalog filters live in the URL, not useState: the listing is shareable and the server can render it"
+          - "No loading.tsx under /products: the Suspense boundary flushes the shell with 200 before notFound() runs, turning a missing product into a soft 404"
+          - "Cart/auth stay client-side: the JWT is in localStorage, unreachable from the server renderer"
+          - "react-query has no callers left; QueryClientProvider kept for the cart mutations stage"
+
+        done:
+          - "app/providers.tsx (QueryClient via useState + defaultOptions); root layout is a server component with metadata"
+          - "Home, /products, /products/[id] are async server components"
+          - "lib/product-search.ts parses/validates query params and builds hrefs; pagination is plain <Link>"
+          - "ProductFilters (client) writes to the URL, debounced, with useTransition for pending feedback"
+          - "generateMetadata per product; app/products/[id]/not-found.tsx"
+          - "Client islands: AddToCartButton, AddToCartForm, ProductImage, CartBadge, HeaderUserMenu, HeaderMobileNav, useAddToCart"
+          - "Header search is a native GET form to /products; cart badge shows the real item count"
+          - "Deleted hooks/useProducts.ts and services/products.ts (dead after the move)"
+
+        verified:
+          - "Home HTML contains product names straight from the server (curl)"
+          - "/products?inStock=true&sort=price_asc server-renders 'Showing 1-12 of 4.368.968 products'"
+          - "Product detail <title> is the product name; unknown product returns HTTP 404"
+          - "eslint + tsc --noEmit clean, 7 jest tests passing, docker compose build OK"
+
+        known_debt:
+          - "Container runs a production build: no Fast Refresh, no error overlay, no fetch logging - a dev compose override is missing"
+          - "Duplicate @types/react in the workspace (18.3.31 and 19.2.17); use explicit ReactNode imports, never the global React namespace"
+          - "No loading skeleton on /products: reintroduce as <Suspense> around the grid inside the page, never as loading.tsx"
 
       # STAGE 1: SEARCH PAGE
       search_page:

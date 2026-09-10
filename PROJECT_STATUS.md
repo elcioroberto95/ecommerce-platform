@@ -1,6 +1,6 @@
 # 📊 Project Status - E-commerce Platform
 
-**Last Updated**: 2026-09-09  
+**Last Updated**: 2026-09-10  
 **Status**: In Progress  
 **Overall Completion**: 16% (2/12 days done)
 
@@ -69,6 +69,17 @@
   - Authentication check (redirect to login if needed)
   - Free shipping threshold indicator
   - Build passing ✨
+
+- ✅ **Server-Side Rendering Migration** (2026-09-10)
+  - Root layout is a server component again; providers isolated in `app/providers.tsx`
+  - Home, `/products` and `/products/[id]` are async server components (`lib/server-api.ts` + `services/products.server.ts`)
+  - Catalog filters live in the URL (`lib/product-search.ts`): shareable links, working back button, `<Link>` pagination
+  - `generateMetadata` gives each product its own `<title>`/description; missing product returns a real HTTP 404
+  - Client islands only where there is interaction or session state: AddToCart*, ProductImage, ProductFilters, CartBadge, HeaderUserMenu, HeaderMobileNav
+  - Header search is a plain GET form to `/products` (works without JS); cart badge shows the real item count
+  - `API_INTERNAL_URL` in compose: server components reach the API over the Docker network
+  - Cart/auth stay client-side (JWT in localStorage) — see Next Steps
+  - Verified in Docker: products in the HTML source, 404 status on unknown product, lint + typecheck + tests + build passing
 
 ---
 
@@ -215,6 +226,7 @@ Frontend (apps/frontend/)
 ## 📝 Commits Log
 
 ```
+2026-09-10 696f8cc refactor(frontend): render the catalog on the server
 2026-09-02 fae05de fix: add QueryClientProvider to root layout
 2026-09-02 c91c31b feat: implement cart page with full functionality
 2026-09-02 2a7e221 fix: fix Prisma import for decimal handling
