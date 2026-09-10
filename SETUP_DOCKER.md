@@ -34,7 +34,8 @@ docker-compose exec backend npm run seed
 Port: 3000
 Database: PostgreSQL (via docker)
 Cache: Redis (via docker)
-Status: http://localhost:3000/health
+Status: http://localhost:3000/api/v1/health          (liveness, nao toca dependencia)
+Readiness: http://localhost:3000/api/v1/health/ready (checa o banco, 503 se falhar)
 ```
 
 ### Frontend (Next.js)
