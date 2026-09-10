@@ -89,6 +89,15 @@
   - Guia em `docs/DEBUGGING.md`
   - `docker compose up --build` continua rodando o build de produção, sem mudança
 
+- ✅ **Fluxo de Autenticação Completo** (2026-09-10)
+  - `POST /auth/forgot-password` (sempre 202, não revela se o e-mail existe) e `POST /auth/reset-password`
+  - Tabela `password_reset_tokens`: guarda só o SHA-256, token de uso único, validade de 1h, consumo transacional
+  - Sem serviço de e-mail: o link de reset vai pro log do backend (`docker compose logs backend`)
+  - Nova página `/auth/reset-password`; login respeita `?redirect=` e confirma o reset
+  - Corrigido: login/cadastro redirecionavam pra home **mesmo quando falhavam**
+  - Mensagens de erro agora vêm da API, não do axios
+  - Verificado ponta a ponta: 201 / 200 / 202 / 200 / 401 / 200 / 400 (token reusado)
+
 ---
 
 ## ⏳ In Progress
@@ -234,6 +243,7 @@ Frontend (apps/frontend/)
 ## 📝 Commits Log
 
 ```
+2026-09-10 f5d6b48 feat(auth): complete the login, register and password reset flows
 2026-09-10 b849d5d feat(infra): add a debuggable dev mode inside Docker
 2026-09-10 696f8cc refactor(frontend): render the catalog on the server
 2026-09-02 fae05de fix: add QueryClientProvider to root layout

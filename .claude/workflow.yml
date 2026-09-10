@@ -261,6 +261,47 @@ workflows:
           dev: "docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build"
           prod: "docker compose up --build -d"
 
+      # STAGE 0.10: AUTH FLOW (user request: "fluxo completo de login, cadastro e esqueci minha senha")
+      auth_flow:
+        name: "Complete login, register and password reset"
+        status: COMPLETE
+        completion: 100%
+        duration: "0.5 day"
+        assigned_agent: "fullstack-auth-agent"
+        started_date: "2026-09-10"
+        completed_date: "2026-09-10"
+
+        trigger: "The forgot-password page posted to /auth/forgot-password, which did not exist, and there was no reset screen at all."
+
+        decisions:
+          - "forgot-password always returns 202: a different answer for unknown emails turns the endpoint into an account oracle"
+          - "Only the SHA-256 of the reset token is stored; the raw value exists solely in the link"
+          - "Token is single use, 1h TTL, and a new request voids outstanding ones"
+          - "Password update + token burn run in one transaction (SELECT ... FOR UPDATE), so a replayed link cannot set the password twice"
+          - "No mail service: the reset URL is logged. Only the sender changes when SMTP arrives"
+          - "?redirect= is validated as an internal path before navigating (open redirect)"
+
+        done:
+          - "Backend: POST /auth/forgot-password, POST /auth/reset-password (schemas, controller, service, repository)"
+          - "Migration 20260910230000_create_password_reset_tokens + prisma model + PasswordResetTokenRow"
+          - "APP_URL env (default http://localhost:3001) and compose wiring"
+          - "Frontend: /auth/reset-password page (with missing-token state)"
+          - "Login honours ?redirect= and shows a confirmation after a completed reset"
+          - "useLogin/useRegister report success explicitly; they used to redirect after a FAILED login because apiError was read from the previous render"
+          - "getApiErrorMessage surfaces the API message instead of axios's 'Request failed with status code 401'"
+          - "docs/API_MAPPINGS.md flagged as a planning doc that never matched the implementation"
+
+        verified:
+          - "register 201, login 200, forgot 202 (real email), forgot 202 (unknown email)"
+          - "reset 200, old password 401, new password 200, replayed token 400"
+          - "All four auth pages render in dev and in the production build"
+          - "eslint + tsc (both apps) + 7 jest tests + both Docker builds"
+
+        known_debt:
+          - "No rate limiting on /auth/login or /auth/forgot-password"
+          - "No mail delivery: the reset link only reaches the backend log (MailHog would close this)"
+          - "Register does not carry ?redirect= forward from the login page"
+
       # STAGE 1: SEARCH PAGE
       search_page:
         name: "Search Page Implementation"
