@@ -7,8 +7,10 @@
 .git
 .gitignore
 
-.env
-.env.*
+# Anchored patterns only match the context root, so use ** to catch
+# apps/*/.env.local too.
+**/.env
+**/.env.*
 npm-debug.log
 pnpm-debug.log
 .DS_Store

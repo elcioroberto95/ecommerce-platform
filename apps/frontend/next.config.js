@@ -12,6 +12,12 @@ const nextConfig = {
   typescript: {
     tsconfigPath: './tsconfig.json',
   },
+  // Prints every server-side fetch (URL + cache status) while running `next dev`.
+  logging: {
+    fetches: {
+      fullUrl: true,
+    },
+  },
 }
 
 export default nextConfig

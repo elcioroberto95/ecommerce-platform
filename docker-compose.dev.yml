@@ -1,0 +1,55 @@
+# Development overlay. Run it explicitly so plain `docker compose up` keeps
+# testing the production build:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+#
+# What changes: both apps run their watch mode with the source bind-mounted,
+# and both expose a Node inspector port (frontend 9229, backend 9230).
+services:
+  backend:
+    build:
+      target: dev
+    # tsx spawns the app as a child process, so the inspector flag goes to the
+    # child instead of NODE_OPTIONS (which would bind the port twice).
+    command: pnpm exec tsx watch --inspect=0.0.0.0:9230 src/server.ts
+    environment:
+      NODE_ENV: development
+      LOG_LEVEL: debug
+      # Docker Desktop does not forward filesystem events from the Windows host.
+      CHOKIDAR_USEPOLLING: "true"
+    ports:
+      - "3000:3000"
+      - "9230:9230"
+    volumes:
+      - ./apps/backend/src:/app/apps/backend/src
+      - ./apps/backend/tsconfig.json:/app/apps/backend/tsconfig.json
+
+  frontend:
+    build:
+      target: dev
+    # `next dev` forks the real server with --inspect=<CLI port + 1>, always bound
+    # to 127.0.0.1, so socat republishes it on 9229 for the host. The flag has to
+    # travel in NODE_OPTIONS: as a CLI flag it is inherited through execArgv and
+    # both processes fight over the same port.
+    command: >
+      sh -c "socat TCP-LISTEN:9229,fork,reuseaddr TCP:127.0.0.1:9301 &
+             exec node_modules/.bin/next dev"
+    environment:
+      NODE_ENV: development
+      # In dev these are read at runtime, so no rebuild is needed to change them.
+      NEXT_PUBLIC_API_URL: http://localhost:3000/api/v1
+      NEXT_PUBLIC_APP_URL: http://localhost:3001
+      API_INTERNAL_URL: http://backend:3000/api/v1
+      # Bare port only: Next does parseInt() on this value to derive the child's.
+      NODE_OPTIONS: --inspect=9300
+      # Same reason as CHOKIDAR_USEPOLLING: Fast Refresh needs polling here.
+      WATCHPACK_POLLING: "true"
+    ports:
+      - "3001:3001"
+      - "9229:9229"
+    volumes:
+      - ./apps/frontend/src:/app/apps/frontend/src
+      - ./apps/frontend/next.config.js:/app/apps/frontend/next.config.js
+      - ./apps/frontend/tailwind.config.ts:/app/apps/frontend/tailwind.config.ts
+      - ./apps/frontend/postcss.config.js:/app/apps/frontend/postcss.config.js
+      - ./apps/frontend/tsconfig.json:/app/apps/frontend/tsconfig.json

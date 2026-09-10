@@ -1,4 +1,5 @@
-FROM node:20-bookworm-slim AS builder
+# Shared base: workspace dependencies + source. `dev` and `builder` branch off it.
+FROM node:20-bookworm-slim AS deps
 
 WORKDIR /app
 
@@ -14,6 +15,19 @@ COPY apps/backend/package.json ./apps/backend/package.json
 RUN pnpm install --frozen-lockfile
 
 COPY apps/backend ./apps/backend
+
+
+# Development target: `tsx watch` with the inspector, used by docker-compose.dev.yml.
+FROM deps AS dev
+
+WORKDIR /app/apps/backend
+
+EXPOSE 3000 9230
+
+CMD ["pnpm", "run", "dev"]
+
+
+FROM deps AS builder
 
 RUN pnpm --filter backend run build
 
