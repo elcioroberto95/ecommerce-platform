@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { loginSchema, LoginFormData } from '@/lib/validations'
 import { useAuth } from '@/context/AuthContext'
+import { getApiErrorMessage } from '@/lib/api-client'
 
 export function useLogin() {
   const { login: authLogin, isLoading: isAuthLoading } = useAuth()
@@ -16,20 +17,32 @@ export function useLogin() {
     },
   })
 
-  const onSubmit = async (data: LoginFormData) => {
-    setApiError(null)
-    try {
-      await authLogin(data.email, data.password)
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to login'
-      setApiError(message)
-      form.setError('root', { message })
-    }
+  /**
+   * Resolves true only when the credentials were accepted. The caller cannot
+   * read `apiError` right after awaiting: it still holds the previous render's
+   * value, which used to redirect the user away from a failed login.
+   */
+  const onSubmit = async (event: React.FormEvent): Promise<boolean> => {
+    let succeeded = false
+
+    await form.handleSubmit(async (data) => {
+      setApiError(null)
+      try {
+        await authLogin(data.email, data.password)
+        succeeded = true
+      } catch (error) {
+        const message = getApiErrorMessage(error, 'Failed to login')
+        setApiError(message)
+        form.setError('root', { message })
+      }
+    })(event)
+
+    return succeeded
   }
 
   return {
     form,
-    onSubmit: form.handleSubmit(onSubmit),
+    onSubmit,
     isLoading: isAuthLoading,
     apiError,
   }

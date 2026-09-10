@@ -5,6 +5,7 @@ import LoginPage from '../page'
 // Mock next/navigation
 jest.mock('next/navigation', () => ({
   useRouter: jest.fn(),
+  useSearchParams: () => new URLSearchParams(),
 }))
 
 // Mock AuthContext

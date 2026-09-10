@@ -11,6 +11,8 @@ services:
       REDIS_URL: redis://redis:6379
       JWT_SECRET: dev-secret
       LOG_LEVEL: info
+      # Storefront URL used to build password reset links.
+      APP_URL: http://localhost:3001
     ports:
       - "3000:3000"
     depends_on:
