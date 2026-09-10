@@ -302,6 +302,33 @@ workflows:
           - "No mail delivery: the reset link only reaches the backend log (MailHog would close this)"
           - "Register does not carry ?redirect= forward from the login page"
 
+      # STAGE 0.11: OBSERVABILITY (user goal: deploy to AWS with the slow DB on purpose, to learn system design)
+      observability:
+        name: "See inside the system before it breaks in the cloud"
+        status: IN_PROGRESS
+        completion: 20%
+        assigned_agent: "infra-agent"
+        started_date: "2026-09-10"
+
+        why: "User will deploy to AWS without fixing db_performance, deliberately, to hit real failure modes. Without instrumentation that only produces 'the site is slow', which teaches nothing."
+
+        done:
+          - "Health split: /api/v1/health (liveness, no dependencies) and /api/v1/health/ready (database check, 2s timeout, 503)"
+          - "Fixed the doubled prefix: health answered at /api/v1/api/v1/health, so any load balancer check would have failed"
+          - "Frontend /api/health answered by Next itself"
+          - "Docker healthchecks on both services"
+
+        remaining:
+          - "Correlation id: error-handler.ts already reads x-request-id but nothing generates it"
+          - "Slow query log in pool.ts (> ~300ms with the SQL) - this is what will name the count(*) in production"
+          - "Request duration percentiles (prom-client histogram, or CloudWatch EMF on AWS)"
+          - "Connection pool metrics (totalCount / idleCount / waitingCount) - first failure mode under load"
+          - "Prometheus + Grafana in docker-compose.dev.yml"
+          - "k6 load script + a recorded baseline before any optimisation"
+
+        notes:
+          - "Redis runs in compose and is in the env schema, but no code uses it: on AWS that would be a paid ElastiCache doing nothing"
+
       # STAGE 1: SEARCH PAGE
       search_page:
         name: "Search Page Implementation"

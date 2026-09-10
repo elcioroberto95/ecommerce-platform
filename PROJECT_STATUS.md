@@ -98,6 +98,13 @@
   - Mensagens de erro agora vêm da API, não do axios
   - Verificado ponta a ponta: 201 / 200 / 202 / 200 / 401 / 200 / 400 (token reusado)
 
+- ✅ **Health Checks: liveness x readiness** (2026-09-10)
+  - `/api/v1/health` — barato, sem dependência (é o que o load balancer consulta)
+  - `/api/v1/health/ready` — checa o banco com timeout de 2s, responde 503 se falhar
+  - Corrigido: o health respondia em `/api/v1/api/v1/health` (prefixo duplicado); a URL documentada dava 404
+  - `/api/health` no frontend, respondido pelo próprio Next
+  - `healthcheck` no compose para backend e frontend
+
 ---
 
 ## ⏳ In Progress
@@ -243,6 +250,7 @@ Frontend (apps/frontend/)
 ## 📝 Commits Log
 
 ```
+2026-09-10 1701714 feat(health): split liveness from readiness and fix the health route
 2026-09-10 f5d6b48 feat(auth): complete the login, register and password reset flows
 2026-09-10 b849d5d feat(infra): add a debuggable dev mode inside Docker
 2026-09-10 696f8cc refactor(frontend): render the catalog on the server
