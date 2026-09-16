@@ -87,7 +87,6 @@ workflows:
         remaining:
           - "Cart types: productId / product.name / product.price / summary.total (front still uses product_id etc.)"
           - "forgot-password page calls nonexistent endpoint - decide: implement or hide"
-          - "Header search box does nothing - wire to /products?search="
           - "Frontend eslint config is broken (flat config + eslint 8 ignores src) - fix so lint runs"
           - "Ratings/reviews: not in the domain; UI removed. Backend sort=rating and ratingMin are dead code"
 
@@ -183,6 +182,152 @@ workflows:
         known_debt:
           - "products.sort=rating and ratingMin are accepted but do nothing (no ratings in the domain)"
           - "count(*) on every list is a full scan at millions of rows -> db_performance stage"
+
+      # STAGE 0.8: SSR MIGRATION (user request: "vamos tirar esse monte de use client")
+      ssr_migration:
+        name: "Move the catalog from client-side fetching to Server Components"
+        status: COMPLETE
+        completion: 100%
+        duration: "0.5 day"
+        assigned_agent: "frontend-ssr-agent"
+        started_date: "2026-09-10"
+        completed_date: "2026-09-10"
+
+        trigger: "Root layout carried 'use client', so every page fetched in the browser and the HTML shipped empty."
+
+        decisions:
+          - "Server fetches go through lib/server-api.ts with cache: 'no-store' (prices/stock move per request, and it keeps the route out of static generation)"
+          - "API_INTERNAL_URL (http://backend:3000/api/v1) for server components; NEXT_PUBLIC_API_URL stays the browser-facing URL"
+          - "Catalog filters live in the URL, not useState: the listing is shareable and the server can render it"
+          - "No loading.tsx under /products: the Suspense boundary flushes the shell with 200 before notFound() runs, turning a missing product into a soft 404"
+          - "Cart/auth stay client-side: the JWT is in localStorage, unreachable from the server renderer"
+          - "react-query has no callers left; QueryClientProvider kept for the cart mutations stage"
+
+        done:
+          - "app/providers.tsx (QueryClient via useState + defaultOptions); root layout is a server component with metadata"
+          - "Home, /products, /products/[id] are async server components"
+          - "lib/product-search.ts parses/validates query params and builds hrefs; pagination is plain <Link>"
+          - "ProductFilters (client) writes to the URL, debounced, with useTransition for pending feedback"
+          - "generateMetadata per product; app/products/[id]/not-found.tsx"
+          - "Client islands: AddToCartButton, AddToCartForm, ProductImage, CartBadge, HeaderUserMenu, HeaderMobileNav, useAddToCart"
+          - "Header search is a native GET form to /products; cart badge shows the real item count"
+          - "Deleted hooks/useProducts.ts and services/products.ts (dead after the move)"
+
+        verified:
+          - "Home HTML contains product names straight from the server (curl)"
+          - "/products?inStock=true&sort=price_asc server-renders 'Showing 1-12 of 4.368.968 products'"
+          - "Product detail <title> is the product name; unknown product returns HTTP 404"
+          - "eslint + tsc --noEmit clean, 7 jest tests passing, docker compose build OK"
+
+        known_debt:
+          - "Container runs a production build: no Fast Refresh, no error overlay, no fetch logging - a dev compose override is missing"
+          - "Duplicate @types/react in the workspace (18.3.31 and 19.2.17); use explicit ReactNode imports, never the global React namespace"
+          - "No loading skeleton on /products: reintroduce as <Suspense> around the grid inside the page, never as loading.tsx"
+
+      # STAGE 0.9: DEV EXPERIENCE (user request: "eu quero aprender debugar esse tipo de projeto")
+      dev_experience:
+        name: "Debuggable dev mode inside Docker"
+        status: COMPLETE
+        completion: 100%
+        duration: "0.5 day"
+        assigned_agent: "infra-agent"
+        started_date: "2026-09-10"
+        completed_date: "2026-09-10"
+
+        trigger: "The container only ran the production build: no Fast Refresh, no error overlay, no fetch logging, no breakpoints."
+
+        decisions:
+          - "docker-compose.dev.yml, not docker-compose.override.yml: plain `docker compose up` must keep exercising the production build"
+          - "Both Dockerfiles share a `deps` stage; `dev` and `builder` branch off it and the runner stage is untouched"
+          - "Inspector flag travels in NODE_OPTIONS as a bare port: as a CLI flag fork() inherits execArgv and both processes fight over the port, and Next parseInt()s the value to derive the child's"
+          - "socat republishes the forked Next server (127.0.0.1:9301) on 0.0.0.0:9229, since Node binds forked inspectors to localhost only"
+          - "Polling watchers (WATCHPACK_POLLING / CHOKIDAR_USEPOLLING): Docker Desktop does not forward file events from the Windows host"
+
+        done:
+          - "docker-compose.dev.yml (next dev + tsx watch, source bind mounts, inspector ports 9229/9230)"
+          - "dev target in apps/frontend/Dockerfile (with socat) and apps/backend/Dockerfile"
+          - "next.config.js: logging.fetches.fullUrl"
+          - ".vscode/launch.json: attach configs with localRoot/remoteRoot mapping + Chrome for client code"
+          - ".dockerignore: **/.env* (apps/frontend/.env.local was landing in the image)"
+          - "docs/DEBUGGING.md"
+
+        verified:
+          - "curl localhost:9229/json/list and localhost:9230/json/version answer from the host"
+          - "Hot reload through the bind mount, both directions"
+          - "Fetch log shows GET http://backend:3000/api/v1/... with cache status per render"
+          - "Production build still SSRs the catalog (6 products in the HTML) and returns 404 on unknown product; 9229 closed"
+
+        run:
+          dev: "docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build"
+          prod: "docker compose up --build -d"
+
+      # STAGE 0.10: AUTH FLOW (user request: "fluxo completo de login, cadastro e esqueci minha senha")
+      auth_flow:
+        name: "Complete login, register and password reset"
+        status: COMPLETE
+        completion: 100%
+        duration: "0.5 day"
+        assigned_agent: "fullstack-auth-agent"
+        started_date: "2026-09-10"
+        completed_date: "2026-09-10"
+
+        trigger: "The forgot-password page posted to /auth/forgot-password, which did not exist, and there was no reset screen at all."
+
+        decisions:
+          - "forgot-password always returns 202: a different answer for unknown emails turns the endpoint into an account oracle"
+          - "Only the SHA-256 of the reset token is stored; the raw value exists solely in the link"
+          - "Token is single use, 1h TTL, and a new request voids outstanding ones"
+          - "Password update + token burn run in one transaction (SELECT ... FOR UPDATE), so a replayed link cannot set the password twice"
+          - "No mail service: the reset URL is logged. Only the sender changes when SMTP arrives"
+          - "?redirect= is validated as an internal path before navigating (open redirect)"
+
+        done:
+          - "Backend: POST /auth/forgot-password, POST /auth/reset-password (schemas, controller, service, repository)"
+          - "Migration 20260910230000_create_password_reset_tokens + prisma model + PasswordResetTokenRow"
+          - "APP_URL env (default http://localhost:3001) and compose wiring"
+          - "Frontend: /auth/reset-password page (with missing-token state)"
+          - "Login honours ?redirect= and shows a confirmation after a completed reset"
+          - "useLogin/useRegister report success explicitly; they used to redirect after a FAILED login because apiError was read from the previous render"
+          - "getApiErrorMessage surfaces the API message instead of axios's 'Request failed with status code 401'"
+          - "docs/API_MAPPINGS.md flagged as a planning doc that never matched the implementation"
+
+        verified:
+          - "register 201, login 200, forgot 202 (real email), forgot 202 (unknown email)"
+          - "reset 200, old password 401, new password 200, replayed token 400"
+          - "All four auth pages render in dev and in the production build"
+          - "eslint + tsc (both apps) + 7 jest tests + both Docker builds"
+
+        known_debt:
+          - "No rate limiting on /auth/login or /auth/forgot-password"
+          - "No mail delivery: the reset link only reaches the backend log (MailHog would close this)"
+          - "Register does not carry ?redirect= forward from the login page"
+
+      # STAGE 0.11: OBSERVABILITY (user goal: deploy to AWS with the slow DB on purpose, to learn system design)
+      observability:
+        name: "See inside the system before it breaks in the cloud"
+        status: IN_PROGRESS
+        completion: 20%
+        assigned_agent: "infra-agent"
+        started_date: "2026-09-10"
+
+        why: "User will deploy to AWS without fixing db_performance, deliberately, to hit real failure modes. Without instrumentation that only produces 'the site is slow', which teaches nothing."
+
+        done:
+          - "Health split: /api/v1/health (liveness, no dependencies) and /api/v1/health/ready (database check, 2s timeout, 503)"
+          - "Fixed the doubled prefix: health answered at /api/v1/api/v1/health, so any load balancer check would have failed"
+          - "Frontend /api/health answered by Next itself"
+          - "Docker healthchecks on both services"
+
+        remaining:
+          - "Correlation id: error-handler.ts already reads x-request-id but nothing generates it"
+          - "Slow query log in pool.ts (> ~300ms with the SQL) - this is what will name the count(*) in production"
+          - "Request duration percentiles (prom-client histogram, or CloudWatch EMF on AWS)"
+          - "Connection pool metrics (totalCount / idleCount / waitingCount) - first failure mode under load"
+          - "Prometheus + Grafana in docker-compose.dev.yml"
+          - "k6 load script + a recorded baseline before any optimisation"
+
+        notes:
+          - "Redis runs in compose and is in the env schema, but no code uses it: on AWS that would be a paid ElastiCache doing nothing"
 
       # STAGE 1: SEARCH PAGE
       search_page:

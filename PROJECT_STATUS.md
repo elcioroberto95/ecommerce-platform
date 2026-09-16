@@ -1,6 +1,6 @@
 # 📊 Project Status - E-commerce Platform
 
-**Last Updated**: 2026-09-09  
+**Last Updated**: 2026-09-10  
 **Status**: In Progress  
 **Overall Completion**: 16% (2/12 days done)
 
@@ -69,6 +69,41 @@
   - Authentication check (redirect to login if needed)
   - Free shipping threshold indicator
   - Build passing ✨
+
+- ✅ **Server-Side Rendering Migration** (2026-09-10)
+  - Root layout is a server component again; providers isolated in `app/providers.tsx`
+  - Home, `/products` and `/products/[id]` are async server components (`lib/server-api.ts` + `services/products.server.ts`)
+  - Catalog filters live in the URL (`lib/product-search.ts`): shareable links, working back button, `<Link>` pagination
+  - `generateMetadata` gives each product its own `<title>`/description; missing product returns a real HTTP 404
+  - Client islands only where there is interaction or session state: AddToCart*, ProductImage, ProductFilters, CartBadge, HeaderUserMenu, HeaderMobileNav
+  - Header search is a plain GET form to `/products` (works without JS); cart badge shows the real item count
+  - `API_INTERNAL_URL` in compose: server components reach the API over the Docker network
+  - Cart/auth stay client-side (JWT in localStorage) — see Next Steps
+  - Verified in Docker: products in the HTML source, 404 status on unknown product, lint + typecheck + tests + build passing
+
+- ✅ **Dev Mode Debugável no Docker** (2026-09-10)
+  - `docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build` — Fast Refresh, overlay de erro e log de fetch
+  - Inspector do Next em `localhost:9229` e do backend em `localhost:9230`; `.vscode/launch.json` com attach + Chrome
+  - `logging.fetches.fullUrl`: cada fetch server-side aparece no log com URL e status de cache
+  - `.dockerignore` corrigido (`apps/frontend/.env.local` ia junto na imagem)
+  - Guia em `docs/DEBUGGING.md`
+  - `docker compose up --build` continua rodando o build de produção, sem mudança
+
+- ✅ **Fluxo de Autenticação Completo** (2026-09-10)
+  - `POST /auth/forgot-password` (sempre 202, não revela se o e-mail existe) e `POST /auth/reset-password`
+  - Tabela `password_reset_tokens`: guarda só o SHA-256, token de uso único, validade de 1h, consumo transacional
+  - Sem serviço de e-mail: o link de reset vai pro log do backend (`docker compose logs backend`)
+  - Nova página `/auth/reset-password`; login respeita `?redirect=` e confirma o reset
+  - Corrigido: login/cadastro redirecionavam pra home **mesmo quando falhavam**
+  - Mensagens de erro agora vêm da API, não do axios
+  - Verificado ponta a ponta: 201 / 200 / 202 / 200 / 401 / 200 / 400 (token reusado)
+
+- ✅ **Health Checks: liveness x readiness** (2026-09-10)
+  - `/api/v1/health` — barato, sem dependência (é o que o load balancer consulta)
+  - `/api/v1/health/ready` — checa o banco com timeout de 2s, responde 503 se falhar
+  - Corrigido: o health respondia em `/api/v1/api/v1/health` (prefixo duplicado); a URL documentada dava 404
+  - `/api/health` no frontend, respondido pelo próprio Next
+  - `healthcheck` no compose para backend e frontend
 
 ---
 
@@ -215,6 +250,10 @@ Frontend (apps/frontend/)
 ## 📝 Commits Log
 
 ```
+2026-09-10 1701714 feat(health): split liveness from readiness and fix the health route
+2026-09-10 f5d6b48 feat(auth): complete the login, register and password reset flows
+2026-09-10 b849d5d feat(infra): add a debuggable dev mode inside Docker
+2026-09-10 696f8cc refactor(frontend): render the catalog on the server
 2026-09-02 fae05de fix: add QueryClientProvider to root layout
 2026-09-02 c91c31b feat: implement cart page with full functionality
 2026-09-02 2a7e221 fix: fix Prisma import for decimal handling

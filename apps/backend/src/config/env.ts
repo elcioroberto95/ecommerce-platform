@@ -8,6 +8,8 @@ export const envSchema = z.object({
   DATABASE_URL: z.string(),
   REDIS_URL: z.string(),
   JWT_SECRET: z.string().min(1),
+  /** Public URL of the storefront, used to build password reset links. */
+  APP_URL: z.string().url().default('http://localhost:3001'),
   LOG_LEVEL: z
     .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
     .default('info'),

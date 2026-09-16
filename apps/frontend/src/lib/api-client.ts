@@ -47,4 +47,27 @@ apiClient.interceptors.response.use(
   }
 )
 
+/** Backend error envelope: { success: false, code, message }. */
+interface ApiErrorBody {
+  message?: string
+}
+
+/**
+ * Axios reports transport failures ("Request failed with status code 401"),
+ * never what the API actually said. This digs out the real message.
+ */
+export function getApiErrorMessage(error: unknown, fallback: string): string {
+  if (axios.isAxiosError<ApiErrorBody>(error)) {
+    const message = error.response?.data?.message
+    if (message) {
+      return message
+    }
+    if (!error.response) {
+      return 'Could not reach the server. Please try again.'
+    }
+  }
+
+  return fallback
+}
+
 export default apiClient

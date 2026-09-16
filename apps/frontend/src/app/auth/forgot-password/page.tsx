@@ -7,7 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { forgotPasswordSchema, ForgotPasswordFormData } from '@/lib/validations'
 import { FormInput } from '@/components/FormInput'
 import { ErrorAlert } from '@/components/ErrorAlert'
-import apiClient from '@/lib/api-client'
+import apiClient, { getApiErrorMessage } from '@/lib/api-client'
 
 export default function ForgotPasswordPage() {
   const [isSubmitted, setIsSubmitted] = useState(false)
@@ -27,8 +27,7 @@ export default function ForgotPasswordPage() {
       await apiClient.post('/auth/forgot-password', { email: data.email })
       setIsSubmitted(true)
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to send reset email'
-      setApiError(message)
+      setApiError(getApiErrorMessage(error, 'Failed to send reset email'))
     } finally {
       setIsLoading(false)
     }

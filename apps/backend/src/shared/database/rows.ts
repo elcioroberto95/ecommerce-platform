@@ -29,6 +29,16 @@ export interface UserRow {
 /** What the API is allowed to expose about a user. */
 export type PublicUserRow = Omit<UserRow, 'password'>;
 
+export interface PasswordResetTokenRow {
+  id: string;
+  userId: string;
+  /** SHA-256 of the token that was e-mailed: the raw value is never stored. */
+  tokenHash: string;
+  expiresAt: Date;
+  usedAt: Date | null;
+  createdAt: Date;
+}
+
 export interface CategoryRow {
   id: string;
   name: string;

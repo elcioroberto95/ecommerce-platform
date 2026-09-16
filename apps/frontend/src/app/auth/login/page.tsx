@@ -1,22 +1,35 @@
 'use client'
 
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { Suspense, useState } from 'react'
 import { useLogin } from '@/hooks/useLogin'
 import { FormInput } from '@/components/FormInput'
 import { ErrorAlert } from '@/components/ErrorAlert'
+import { safeRedirect } from '@/lib/redirect'
 
+// useSearchParams needs a Suspense boundary to keep the route prerenderable.
 export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
+  )
+}
+
+function LoginForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { form, onSubmit, isLoading, apiError } = useLogin()
   const [showPassword, setShowPassword] = useState(false)
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    await onSubmit(e)
-    if (!form.formState.errors.root?.message && !apiError) {
-      router.push('/')
+    const succeeded = await onSubmit(e)
+
+    if (succeeded) {
+      // Back to wherever the user was sent from (add-to-cart, /cart, ...).
+      router.push(safeRedirect(searchParams.get('redirect')))
     }
   }
 
@@ -24,6 +37,12 @@ export default function LoginPage() {
     <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-8">
       <h1 className="text-3xl font-bold text-slate-900 mb-2">Login</h1>
       <p className="text-slate-600 mb-8">Sign in to your account to continue</p>
+
+      {searchParams.get('reset') === '1' && (
+        <div className="mb-6 rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-700">
+          Password updated. Sign in with your new password.
+        </div>
+      )}
 
       <ErrorAlert message={apiError} onDismiss={() => form.clearErrors('root')} />
 

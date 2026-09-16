@@ -1,4 +1,5 @@
-FROM node:20-bookworm-slim AS builder
+# Shared base: workspace dependencies + source. `dev` and `builder` branch off it.
+FROM node:20-bookworm-slim AS deps
 
 WORKDIR /app
 
@@ -11,6 +12,25 @@ RUN pnpm install --frozen-lockfile
 
 COPY apps/frontend ./apps/frontend
 
+ENV NEXT_TELEMETRY_DISABLED=1
+
+
+# Development target: `next dev` with Fast Refresh, used by docker-compose.dev.yml.
+# socat publishes the inspector: `next dev` renders in a forked child that Node
+# always binds to 127.0.0.1, so the port has to be proxied to reach the host.
+FROM deps AS dev
+
+RUN apt-get update   && apt-get install -y --no-install-recommends socat   && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app/apps/frontend
+
+EXPOSE 3001 9229
+
+CMD ["pnpm", "run", "dev"]
+
+
+FROM deps AS builder
+
 # NEXT_PUBLIC_* vars are inlined at build time, so they must be passed as build args.
 # The browser calls the API, so this URL must be reachable from the host machine,
 # not from inside the Docker network.
@@ -18,7 +38,6 @@ ARG NEXT_PUBLIC_API_URL=http://localhost:3000/api/v1
 ARG NEXT_PUBLIC_APP_URL=http://localhost:3001
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
-ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN pnpm --filter @app/frontend run build
 

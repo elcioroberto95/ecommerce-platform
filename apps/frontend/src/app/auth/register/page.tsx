@@ -50,8 +50,9 @@ export default function RegisterPage() {
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    await onSubmit(e)
-    if (!form.formState.errors.root?.message && !apiError) {
+    const succeeded = await onSubmit(e)
+
+    if (succeeded) {
       router.push('/')
     }
   }

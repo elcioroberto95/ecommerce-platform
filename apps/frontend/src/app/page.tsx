@@ -1,13 +1,26 @@
-'use client'
-
 import Link from 'next/link'
 import { ProductCard } from '@/components/ProductCard'
-import { useProducts } from '@/hooks/useProducts'
+import { productsServerService } from '@/services/products.server'
+import type { Product } from '@/types'
 
-export default function Home() {
+// Stock and prices move constantly, so the page is rendered per request.
+export const dynamic = 'force-dynamic'
+
+export default async function Home() {
   // "Featured" = newest products that can actually be bought.
-  const { data, isLoading, isError } = useProducts({ limit: 6, sort: 'newest', inStock: true })
-  const featuredProducts = data?.items ?? []
+  let featuredProducts: Product[] = []
+  let failedToLoad = false
+
+  try {
+    const { items } = await productsServerService.getProducts({
+      limit: 6,
+      sort: 'newest',
+      inStock: true,
+    })
+    featuredProducts = items
+  } catch {
+    failedToLoad = true
+  }
 
   return (
     <div className="container mx-auto px-4">
@@ -50,13 +63,7 @@ export default function Home() {
           </Link>
         </div>
 
-        {isLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[...Array(6)].map((_, i) => (
-              <div key={i} className="bg-slate-200 rounded-lg h-96 animate-pulse" />
-            ))}
-          </div>
-        ) : isError ? (
+        {failedToLoad ? (
           <div className="rounded-lg border border-red-200 bg-red-50 p-8 text-center">
             <p className="text-red-700 font-medium">We couldn&apos;t load the featured products.</p>
             <p className="text-sm text-red-600 mt-1">Please try again in a moment.</p>
@@ -106,9 +113,7 @@ export default function Home() {
         <div className="flex flex-col md:flex-row items-center justify-between gap-6">
           <div>
             <h3 className="text-2xl font-bold text-slate-900 mb-2">New to E-Shop?</h3>
-            <p className="text-slate-600">
-              Sign up now and get 20% off your first purchase!
-            </p>
+            <p className="text-slate-600">Sign up now and get 20% off your first purchase!</p>
           </div>
           <Link
             href="/auth/register"

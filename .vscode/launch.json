@@ -1,0 +1,46 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      // Server Components, generateMetadata, route handlers - runs in the container.
+      "name": "Attach: Next server (Docker 9229)",
+      "type": "node",
+      "request": "attach",
+      "port": 9229,
+      "address": "localhost",
+      "restart": true,
+      "localRoot": "${workspaceFolder}/apps/frontend",
+      "remoteRoot": "/app/apps/frontend",
+      "skipFiles": ["<node_internals>/**", "**/node_modules/**"]
+    },
+    {
+      "name": "Attach: backend API (Docker 9230)",
+      "type": "node",
+      "request": "attach",
+      "port": 9230,
+      "address": "localhost",
+      "restart": true,
+      "localRoot": "${workspaceFolder}/apps/backend",
+      "remoteRoot": "/app/apps/backend",
+      "skipFiles": ["<node_internals>/**", "**/node_modules/**"]
+    },
+    {
+      // Client Components: breakpoints in the browser, from the editor.
+      "name": "Launch: Chrome on the app",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:3001",
+      "webRoot": "${workspaceFolder}/apps/frontend"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Debug everything (server + client)",
+      "configurations": [
+        "Attach: Next server (Docker 9229)",
+        "Attach: backend API (Docker 9230)",
+        "Launch: Chrome on the app"
+      ]
+    }
+  ]
+}
