@@ -30,19 +30,19 @@ Desenvolver uma plataforma de e-commerce moderna com foco em aprendizado de arqu
 
 ## Pedido
 
-- O usuário poderá finalizar um pedido.
-- O sistema deverá calcular o valor do frete.
-- O pedido deverá possuir um status (Pendente, Processando, Finalizado, Cancelado).
-- O usuário poderá consultar seus pedidos.
+- [x] O usuário poderá finalizar um pedido.
+- [x] O sistema deverá calcular o valor do frete.
+- [x] O pedido deverá possuir um status (Pendente, Processando, Finalizado, Cancelado).
+- [x] O usuário poderá consultar seus pedidos.
 
 ## Administração
 
-- O administrador poderá cadastrar produtos.
-- O administrador poderá editar produtos.
-- O administrador poderá remover produtos.
+- [x] O administrador poderá cadastrar produtos.
+- [x] O administrador poderá editar produtos.
+- [x] O administrador poderá remover produtos.
 - O administrador poderá configurar o valor padrão do frete.
-- O administrador poderá visualizar todos os pedidos.
-- O administrador poderá alterar o status dos pedidos.
+- [x] O administrador poderá visualizar todos os pedidos.
+- [x] O administrador poderá alterar o status dos pedidos.
 
 ---
 
@@ -67,30 +67,42 @@ Desenvolver uma plataforma de e-commerce moderna com foco em aprendizado de arqu
 
 ## Segurança
 
-- Senhas deverão ser armazenadas utilizando hash.
-- As APIs deverão utilizar autenticação JWT.
-- Apenas administradores poderão acessar funcionalidades administrativas.
-- As entradas deverão ser validadas.
+- [x] Senhas deverão ser armazenadas utilizando hash.
+- [x] As APIs deverão utilizar autenticação JWT.
+- [x] Apenas administradores poderão acessar funcionalidades administrativas.
+- [x] As entradas deverão ser validadas.
 
 ## Observabilidade
 
-- Todas as requisições deverão possuir logs estruturados.
+- [x] Todas as requisições deverão possuir logs estruturados.
 - O sistema deverá possuir métricas de utilização.
 - O sistema deverá permitir rastreamento completo das requisições (Tracing).
 
 ## Qualidade
 
-- O projeto deverá possuir testes unitários.
+- [x] O projeto deverá possuir testes unitários.
 - O projeto deverá possuir testes de integração.
 - O projeto deverá seguir padrões de Clean Code.
-- O projeto deverá utilizar TypeScript.
+- [x] O projeto deverá utilizar TypeScript.
 
 ## DevOps
 
-- O projeto deverá possuir pipeline de CI/CD.
-- O ambiente deverá ser executado utilizando Docker.
-- O ambiente deverá permitir execução local através do Docker Compose.
-- O deploy deverá ser automatizado.
+- [x] O projeto deverá possuir pipeline de CI/CD.
+- [x] O ambiente deverá ser executado utilizando Docker.
+- [x] O ambiente deverá permitir execução local através do Docker Compose.
+- [x] O deploy deverá ser automatizado.
+
+## Operação em produção
+
+- [x] Aplicação publicada em uma instância AWS EC2.
+- [x] Elastic IP associado à instância.
+- [x] Nginx configurado como reverse proxy.
+- [x] Acesso administrativo configurado via AWS Systems Manager.
+- [x] IAM configurado para a EC2 e para o GitHub Actions via OIDC.
+- [x] Monitoramento de memória, disco e swap configurado no CloudWatch.
+- [x] SSH restrito ao IP de administração.
+- [ ] HTTPS configurado com domínio e certificado TLS.
+- [ ] Backup externo do PostgreSQL automatizado.
 
 ---
 
