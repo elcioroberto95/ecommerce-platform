@@ -43,10 +43,9 @@ jobs:
 
           read -r -d '' DEPLOY_SCRIPT <<'SCRIPT' || true
           set -e
-          git config --global --add safe.directory /home/ubuntu/ecommerce-platform
           cd /home/ubuntu/ecommerce-platform
-          git checkout master
-          git pull --ff-only origin master
+          git -c safe.directory=/home/ubuntu/ecommerce-platform checkout master
+          git -c safe.directory=/home/ubuntu/ecommerce-platform pull --ff-only origin master
           docker compose --env-file deploy.env -f docker-compose.prod.yml build
           docker compose --env-file deploy.env -f docker-compose.prod.yml up -d
           docker compose --env-file deploy.env -f docker-compose.prod.yml ps
