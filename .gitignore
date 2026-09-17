@@ -1,6 +1,7 @@
 node_modules
 dist
 .env
+deploy.env
 coverage
 .DS_Store
 # TypeScript incremental build info
