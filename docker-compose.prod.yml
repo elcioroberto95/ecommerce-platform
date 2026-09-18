@@ -1,8 +1,6 @@
 services:
   backend:
-    build:
-      context: .
-      dockerfile: apps/backend/Dockerfile
+    image: ${ECR_REGISTRY:?ECR_REGISTRY is required}/ecommerce/backend:${IMAGE_TAG:?IMAGE_TAG is required}
     environment:
       NODE_ENV: production
       PORT: 3000
@@ -31,12 +29,7 @@ services:
         condition: service_started
 
   frontend:
-    build:
-      context: .
-      dockerfile: apps/frontend/Dockerfile
-      args:
-        NEXT_PUBLIC_API_URL: ${PUBLIC_API_URL:?PUBLIC_API_URL is required}
-        NEXT_PUBLIC_APP_URL: ${PUBLIC_APP_URL:?PUBLIC_APP_URL is required}
+    image: ${ECR_REGISTRY:?ECR_REGISTRY is required}/ecommerce/frontend:${IMAGE_TAG:?IMAGE_TAG is required}
     environment:
       NODE_ENV: production
       PORT: 3001

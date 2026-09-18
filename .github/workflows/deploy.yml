@@ -29,11 +29,43 @@ jobs:
       id-token: write
 
     steps:
+      - name: Checkout approved commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
       - name: Configure AWS credentials with OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/backend/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.login-ecr.outputs.registry }}/ecommerce/backend:${{ github.event.workflow_run.head_sha }}
+            ${{ steps.login-ecr.outputs.registry }}/ecommerce/backend:latest
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/frontend/Dockerfile
+          push: true
+          build-args: |
+            NEXT_PUBLIC_API_URL=${{ vars.PUBLIC_API_URL }}
+            NEXT_PUBLIC_APP_URL=${{ vars.PUBLIC_APP_URL }}
+          tags: |
+            ${{ steps.login-ecr.outputs.registry }}/ecommerce/frontend:${{ github.event.workflow_run.head_sha }}
+            ${{ steps.login-ecr.outputs.registry }}/ecommerce/frontend:latest
 
       - name: Run deployment through SSM
         env:
@@ -43,11 +75,18 @@ jobs:
 
           read -r -d '' DEPLOY_SCRIPT <<'SCRIPT' || true
           set -e
+          ECR_REGISTRY="${{ steps.login-ecr.outputs.registry }}"
+          IMAGE_TAG="${{ github.event.workflow_run.head_sha }}"
+          export ECR_REGISTRY IMAGE_TAG
+
+          aws ecr get-login-password --region us-east-2 | \
+            docker login --username AWS --password-stdin "$ECR_REGISTRY"
+
           cd /home/ubuntu/ecommerce-platform
           git -c safe.directory=/home/ubuntu/ecommerce-platform checkout master
           git -c safe.directory=/home/ubuntu/ecommerce-platform pull --ff-only origin master
-          docker compose --env-file deploy.env -f docker-compose.prod.yml build
-          docker compose --env-file deploy.env -f docker-compose.prod.yml up -d
+          docker compose --env-file deploy.env -f docker-compose.prod.yml pull backend frontend
+          docker compose --env-file deploy.env -f docker-compose.prod.yml up -d --no-build
           docker compose --env-file deploy.env -f docker-compose.prod.yml ps
           SCRIPT
 
